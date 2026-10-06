@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "middleware-matcher-gap",
+      "file": "app/api/admin/secret/route.ts",
+      "lineRange": { "startLine": 3, "endLine": 5 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "middleware-matcher-gap",
+      "file": "app/api/users/update/route.ts",
+      "lineRange": { "startLine": 3, "endLine": 5 }
+    }
+  ],
+  "clean": []
+}

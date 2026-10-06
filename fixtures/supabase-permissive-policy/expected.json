@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "supabase-permissive-policy",
+      "file": "supabase/migrations/20261005000000_permissive_policy.sql",
+      "lineRange": { "startLine": 9, "endLine": 9 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "supabase-permissive-policy",
+      "file": "db/migrations/002_permissive_insert.sql",
+      "lineRange": { "startLine": 1, "endLine": 1 }
+    }
+  ],
+  "clean": []
+}

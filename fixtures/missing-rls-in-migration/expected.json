@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "missing-rls-in-migration",
+      "file": "supabase/migrations/20261004000000_create_users.sql",
+      "lineRange": { "startLine": 1, "endLine": 4 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "missing-rls-in-migration",
+      "file": "db/migrations/001_accounts_table.sql",
+      "lineRange": { "startLine": 2, "endLine": 5 }
+    }
+  ],
+  "clean": []
+}

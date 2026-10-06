@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "stripe-webhook-parsed-body",
+      "file": "app/api/webhooks/stripe/route.ts",
+      "lineRange": { "startLine": 6, "endLine": 7 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "stripe-webhook-parsed-body",
+      "file": "app/api/stripe/webhook/route.ts",
+      "lineRange": { "startLine": 5, "endLine": 6 }
+    }
+  ],
+  "clean": []
+}

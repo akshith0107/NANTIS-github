@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "missing-ownership-check",
+      "file": "app/api/documents/[id]/route.ts",
+      "lineRange": { "startLine": 4, "endLine": 11 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "missing-ownership-check",
+      "file": "app/api/orders/details/route.ts",
+      "lineRange": { "startLine": 5, "endLine": 11 }
+    }
+  ],
+  "clean": []
+}

@@ -1,0 +1,27 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "cookie-missing-flags",
+      "file": "src/lib/config.ts",
+      "lineRange": { "startLine": 4, "endLine": 4 }
+    },
+    {
+      "ruleId": "permissive-cors",
+      "file": "src/lib/config.ts",
+      "lineRange": { "startLine": 8, "endLine": 8 }
+    },
+    {
+      "ruleId": "debug-mode-production",
+      "file": "src/lib/config.ts",
+      "lineRange": { "startLine": 11, "endLine": 11 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "cookie-missing-flags",
+      "file": "src/utils/cookieUtil.ts",
+      "lineRange": { "startLine": 5, "endLine": 5 }
+    }
+  ],
+  "clean": []
+}

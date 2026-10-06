@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "stripe-webhook-no-signature",
+      "file": "app/api/webhooks/stripe/route.ts",
+      "lineRange": { "startLine": 3, "endLine": 8 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "stripe-webhook-no-signature",
+      "file": "app/api/stripe/hook/route.ts",
+      "lineRange": { "startLine": 4, "endLine": 7 }
+    }
+  ],
+  "clean": []
+}

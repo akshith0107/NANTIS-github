@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "supabase-service-role-leak",
+      "file": "app/components/AdminPanel.tsx",
+      "lineRange": { "startLine": 7, "endLine": 8 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "supabase-service-role-leak",
+      "file": "app/api/public-user/route.ts",
+      "lineRange": { "startLine": 7, "endLine": 8 }
+    }
+  ],
+  "clean": []
+}

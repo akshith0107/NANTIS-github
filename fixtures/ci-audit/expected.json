@@ -1,0 +1,37 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "ci-overbroad-permissions",
+      "file": ".github/workflows/deploy.yml",
+      "lineRange": { "startLine": 6, "endLine": 6 }
+    },
+    {
+      "ruleId": "ci-unpinned-action",
+      "file": ".github/workflows/deploy.yml",
+      "lineRange": { "startLine": 12, "endLine": 12 }
+    },
+    {
+      "ruleId": "ci-pull-request-target-checkout",
+      "file": ".github/workflows/deploy.yml",
+      "lineRange": { "startLine": 12, "endLine": 14 }
+    },
+    {
+      "ruleId": "ci-secrets-echoed",
+      "file": ".github/workflows/deploy.yml",
+      "lineRange": { "startLine": 15, "endLine": 15 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "ci-overbroad-permissions",
+      "file": ".github/workflows/ci-helper.yaml",
+      "lineRange": { "startLine": 4, "endLine": 6 }
+    },
+    {
+      "ruleId": "ci-unpinned-action",
+      "file": ".github/workflows/ci-helper.yaml",
+      "lineRange": { "startLine": 12, "endLine": 12 }
+    }
+  ],
+  "clean": []
+}

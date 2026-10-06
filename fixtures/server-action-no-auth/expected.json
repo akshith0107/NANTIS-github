@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "server-action-no-auth",
+      "file": "app/actions/user.ts",
+      "lineRange": { "startLine": 4, "endLine": 11 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "server-action-no-auth",
+      "file": "app/actions/billing.ts",
+      "lineRange": { "startLine": 3, "endLine": 8 }
+    }
+  ],
+  "clean": []
+}

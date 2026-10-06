@@ -1,0 +1,15 @@
+{
+  "name": "@nantis/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@nantis/core": "workspace:*",
+    "@nantis/worker": "workspace:*"
+  },
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  }
+}

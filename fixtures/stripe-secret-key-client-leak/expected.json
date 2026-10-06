@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "stripe-secret-key-client-leak",
+      "file": "app/components/CheckoutButton.tsx",
+      "lineRange": { "startLine": 4, "endLine": 4 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "stripe-secret-key-client-leak",
+      "file": "src/utils/stripeClient.ts",
+      "lineRange": { "startLine": 4, "endLine": 4 }
+    }
+  ],
+  "clean": []
+}

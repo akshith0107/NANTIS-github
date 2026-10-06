@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "supabase-storage-public-or-unprotected",
+      "file": "supabase/migrations/20261005000001_storage_bucket.sql",
+      "lineRange": { "startLine": 1, "endLine": 1 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "supabase-storage-public-or-unprotected",
+      "file": "db/migrations/003_unprotected_bucket.sql",
+      "lineRange": { "startLine": 1, "endLine": 1 }
+    }
+  ],
+  "clean": []
+}

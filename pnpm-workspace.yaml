@@ -1,0 +1,6 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+  - "fixtures"
+allowBuilds:
+  esbuild: false

@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "committed-env-file",
+      "file": ".env.local",
+      "lineRange": { "startLine": 1, "endLine": 2 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "committed-env-file",
+      "file": ".env.production.local",
+      "lineRange": { "startLine": 2, "endLine": 3 }
+    }
+  ],
+  "clean": []
+}

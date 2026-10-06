@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "mass-assignment",
+      "file": "app/api/profiles/route.ts",
+      "lineRange": { "startLine": 4, "endLine": 11 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "mass-assignment",
+      "file": "app/api/users/update/route.ts",
+      "lineRange": { "startLine": 5, "endLine": 10 }
+    }
+  ],
+  "clean": []
+}

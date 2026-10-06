@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "use-client-secret-leak",
+      "file": "app/components/PaymentForm.tsx",
+      "lineRange": { "startLine": 4, "endLine": 4 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "use-client-secret-leak",
+      "file": "src/utils/stripeClient.ts",
+      "lineRange": { "startLine": 1, "endLine": 1 }
+    }
+  ],
+  "clean": []
+}

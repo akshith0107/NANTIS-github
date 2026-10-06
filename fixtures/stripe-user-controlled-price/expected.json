@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "stripe-user-controlled-price",
+      "file": "app/api/checkout/route.ts",
+      "lineRange": { "startLine": 7, "endLine": 7 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "stripe-user-controlled-price",
+      "file": "app/api/payment/intent/route.ts",
+      "lineRange": { "startLine": 6, "endLine": 6 }
+    }
+  ],
+  "clean": []
+}

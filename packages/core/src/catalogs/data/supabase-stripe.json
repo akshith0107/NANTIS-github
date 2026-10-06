@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-10-04T00:00:00Z",
+  "frameworkVersions": {
+    "supabase": "^2.0.0",
+    "stripe": "^14.0.0 || ^15.0.0"
+  },
+  "frameworkEntryPoints": [
+    {
+      "id": "stripe-webhook-endpoint",
+      "kind": "route-handler",
+      "pattern": "app/api/webhooks/stripe/route.(ts|js)",
+      "methods": ["POST"],
+      "description": "Stripe Webhook Event Receiver Route Handler"
+    }
+  ],
+  "sources": [
+    {
+      "id": "stripe-webhook-payload",
+      "name": "Stripe Webhook Event Payload",
+      "category": "webhook-payload",
+      "pattern": "stripe.webhooks.constructEvent",
+      "description": "Verified Stripe Webhook Event Payload Source"
+    }
+  ],
+  "sinks": [
+    {
+      "id": "supabase-db-query-sink",
+      "name": "Supabase Database Client Query",
+      "category": "database",
+      "pattern": "supabase.from",
+      "requiredGuards": ["supabase-auth-get-user"],
+      "description": "Database query sink requiring RLS or authenticated user check"
+    },
+    {
+      "id": "stripe-payment-intent-create-sink",
+      "name": "Stripe PaymentIntent Creation",
+      "category": "payment",
+      "pattern": "stripe.paymentIntents.create",
+      "requiredGuards": ["nantis-assert-repo-access"],
+      "description": "Stripe PaymentIntent execution sink"
+    }
+  ],
+  "sanitizersValidators": [
+    {
+      "id": "stripe-construct-event",
+      "name": "Stripe Webhook Signature Construct Event",
+      "kind": "signature-verifier",
+      "pattern": "stripe.webhooks.constructEvent",
+      "description": "Stripe HMAC-SHA256 signature verification validator"
+    }
+  ],
+  "authGuards": [
+    {
+      "id": "supabase-auth-get-user",
+      "name": "Supabase Auth Get User",
+      "pattern": "supabase.auth.getUser",
+      "description": "Supabase user authentication check"
+    }
+  ]
+}

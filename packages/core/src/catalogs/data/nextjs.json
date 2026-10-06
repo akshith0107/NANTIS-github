@@ -1,0 +1,77 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-10-04T00:00:00Z",
+  "frameworkVersions": {
+    "next": "^14.0.0 || ^15.0.0"
+  },
+  "frameworkEntryPoints": [
+    {
+      "id": "nextjs-app-route-handler",
+      "kind": "route-handler",
+      "pattern": "app/api/**/route.(ts|js|tsx|jsx)",
+      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+      "description": "Next.js App Router API Route Handler"
+    },
+    {
+      "id": "nextjs-server-action",
+      "kind": "server-action",
+      "pattern": "\"use server\" || 'use server'",
+      "methods": ["POST"],
+      "description": "Next.js Server Action Function"
+    },
+    {
+      "id": "nextjs-middleware-matcher",
+      "kind": "middleware",
+      "pattern": "middleware.(ts|js)",
+      "methods": ["GET", "POST", "PUT", "DELETE"],
+      "description": "Next.js Edge Middleware Request Matcher"
+    }
+  ],
+  "sources": [
+    {
+      "id": "nextjs-url-search-params",
+      "name": "Next.js URL Search Parameters",
+      "category": "query-param",
+      "pattern": "req.nextUrl.searchParams",
+      "description": "Taint source from URL query parameter"
+    },
+    {
+      "id": "nextjs-request-json-body",
+      "name": "Next.js Request JSON Body",
+      "category": "request-body",
+      "pattern": "await req.json()",
+      "description": "Taint source from parsed JSON request body"
+    },
+    {
+      "id": "nextjs-cookies-get",
+      "name": "Next.js Cookies Get",
+      "category": "cookie",
+      "pattern": "req.cookies.get",
+      "description": "Taint source from HTTP request cookies"
+    }
+  ],
+  "sinks": [],
+  "sanitizersValidators": [
+    {
+      "id": "zod-schema-parse",
+      "name": "Zod Schema Parse Validation",
+      "kind": "schema-validator",
+      "pattern": ".parse",
+      "description": "Zod schema parsing sanitizer"
+    }
+  ],
+  "authGuards": [
+    {
+      "id": "next-auth-get-session",
+      "name": "NextAuth / Auth.js Session Check",
+      "pattern": "getServerSession",
+      "description": "NextAuth server-side session authentication guard"
+    },
+    {
+      "id": "nantis-assert-repo-access",
+      "name": "NANTIS Repository Tenant Access Check",
+      "pattern": "assertRepoAccess",
+      "description": "NANTIS tenant access control authorization guard"
+    }
+  ]
+}

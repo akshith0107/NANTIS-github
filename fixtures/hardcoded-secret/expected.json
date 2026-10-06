@@ -1,0 +1,17 @@
+{
+  "vulnerable": [
+    {
+      "ruleId": "hardcoded-secret",
+      "file": "src/lib/stripe.ts",
+      "lineRange": { "startLine": 3, "endLine": 3 }
+    }
+  ],
+  "mutated": [
+    {
+      "ruleId": "hardcoded-secret",
+      "file": "src/config/payment/helper.ts",
+      "lineRange": { "startLine": 1, "endLine": 1 }
+    }
+  ],
+  "clean": []
+}
