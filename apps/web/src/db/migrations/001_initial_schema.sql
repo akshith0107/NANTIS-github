@@ -187,3 +187,14 @@ CREATE TABLE IF NOT EXISTS anonymous_rate_limits (
   count INT NOT NULL DEFAULT 1,
   day_start_ms BIGINT NOT NULL
 );
+
+-- 14. Webhook Deliveries (Persistent Idempotency)
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  delivery_id TEXT UNIQUE NOT NULL,
+  event_type VARCHAR(64) NOT NULL,
+  action VARCHAR(64),
+  processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_delivery ON webhook_deliveries(delivery_id);

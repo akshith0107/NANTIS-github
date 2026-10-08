@@ -102,3 +102,12 @@ export interface UserInstallationRow {
   html_url?: string;
   created_at: string;
 }
+
+export interface WebhookDeliveryRow {
+  id: string;
+  delivery_id: string;
+  event_type: string;
+  action?: string | null;
+  processed_at: string;
+}
+

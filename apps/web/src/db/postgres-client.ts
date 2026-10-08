@@ -785,6 +785,22 @@ export class PostgresDatabaseClient {
     return { allowed: true, remaining: dailyCap - (row.count + 1) };
   }
 
+  // Webhook Delivery Deduplication
+  async recordWebhookDelivery(
+    deliveryId: string,
+    eventType: string,
+    action?: string | null
+  ): Promise<boolean> {
+    const query = `
+      INSERT INTO webhook_deliveries (delivery_id, event_type, action, processed_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (delivery_id) DO NOTHING
+      RETURNING delivery_id;
+    `;
+    const res = await this.pool.query(query, [deliveryId, eventType, action || null]);
+    return (res.rowCount || 0) > 0;
+  }
+
   resetInMemoryData(): void {
     // No-op for postgres client, or truncate tables for testing
     this.resetDataForTesting().catch(() => {});
@@ -794,8 +810,10 @@ export class PostgresDatabaseClient {
     await this.pool.query(`
       TRUNCATE TABLE users, github_installations, repositories, scans, findings,
                      scan_diagnostics, user_repo_access, audit_logs, false_positive_reports,
-                     finding_labels, user_repo_snapshots, user_installations, anonymous_rate_limits
+                     finding_labels, user_repo_snapshots, user_installations, anonymous_rate_limits,
+                     webhook_deliveries
       CASCADE;
     `);
   }
 }
+

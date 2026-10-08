@@ -11,6 +11,7 @@ import {
   UserInstallationRow,
   UserRepoSnapshotRow,
   UserRow,
+  WebhookDeliveryRow,
 } from "./schema.js";
 
 export class DatabaseClient {
@@ -22,6 +23,7 @@ export class DatabaseClient {
   private falsePositiveReports = new Map<string, FalsePositiveReportRow>();
   private findingLabels = new Map<string, FindingLabelRow>();
   private scanDiagnosticsMap = new Map<string, ScanDiagnostic[]>();
+  private webhookDeliveries = new Map<string, WebhookDeliveryRow>();
   private auditLogs: AuditLogRow[] = [];
 
   // User Repository Permissions (represents GitHub confirmed access)
@@ -594,6 +596,27 @@ export class DatabaseClient {
     return { allowed: true, remaining: dailyCap - entry.count };
   }
 
+  // Webhook Delivery Deduplication
+  async recordWebhookDelivery(
+    deliveryId: string,
+    eventType: string,
+    action?: string | null
+  ): Promise<boolean> {
+    if (this.webhookDeliveries.has(deliveryId)) {
+      return false; // Already processed
+    }
+
+    const row: WebhookDeliveryRow = {
+      id: crypto.randomUUID(),
+      delivery_id: deliveryId,
+      event_type: eventType,
+      action: action || null,
+      processed_at: new Date().toISOString(),
+    };
+    this.webhookDeliveries.set(deliveryId, row);
+    return true; // Successfully recorded new delivery
+  }
+
   // Utility reset for testing
   resetInMemoryData() {
     this.users.clear();
@@ -609,6 +632,7 @@ export class DatabaseClient {
     this.anonymousRateLimits.clear();
     this.userSnapshotTaken.clear();
     this.scanDiagnosticsMap.clear();
+    this.webhookDeliveries.clear();
     this.auditLogs = [];
   }
 }

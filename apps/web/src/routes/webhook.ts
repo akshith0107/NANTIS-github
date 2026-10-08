@@ -30,7 +30,22 @@ export interface GitHubWebhookPayload {
     timestamp: string;
     author?: { name: string; email: string };
   };
+  pull_request?: {
+    number: number;
+    state?: string;
+    head?: {
+      sha: string;
+      ref: string;
+      label?: string;
+    };
+    base?: {
+      sha: string;
+      ref: string;
+      label?: string;
+    };
+  };
   repositories?: { id: number; name: string; full_name: string; private: boolean }[];
+  repositories_added?: { id: number; name: string; full_name: string; private: boolean }[];
   repositories_removed?: { id: number; name?: string; full_name?: string; private?: boolean }[];
 }
 
@@ -104,9 +119,33 @@ export async function handleGitHubWebhook(
     (headers["x-github-event"] as string | undefined) ||
     (headers["X-GitHub-Event"] as string | undefined);
 
+  const deliveryId =
+    (headers["x-github-delivery"] as string | undefined) ||
+    (headers["X-GitHub-Delivery"] as string | undefined);
+
   const action = payload.action;
 
-  // 3. Handle Installation Events
+  // 3. Persistent Delivery Deduplication (Step 8)
+  if (deliveryId) {
+    const isNewDelivery = await db.recordWebhookDelivery(deliveryId, eventType || "unknown", action);
+    if (!isNewDelivery) {
+      await db.createAuditLog({
+        action: "webhook.duplicate_delivery_ignored",
+        target_resource: `delivery:${deliveryId}`,
+        ip_address: ip,
+        user_agent: userAgent,
+        details: { deliveryId, eventType, action },
+      });
+
+      return {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ok: true, duplicate: true, deliveryId }),
+      };
+    }
+  }
+
+  // 4. Handle Installation Lifecycle Events
   if (eventType === "installation" && payload.installation) {
     const inst = payload.installation;
     const account = inst.account;
@@ -139,7 +178,7 @@ export async function handleGitHubWebhook(
     }
   }
 
-  // 3b. Handle Installation Repositories Events
+  // 4b. Handle Installation Repositories Lifecycle Events
   if (eventType === "installation_repositories" && payload.repositories_removed) {
     const removedList = payload.repositories_removed as { id: number; full_name?: string }[];
     for (const r of removedList) {
@@ -147,7 +186,30 @@ export async function handleGitHubWebhook(
     }
   }
 
-  // 4. Handle Push Webhook Events (Rescan Queueing, Default Branch Filtering, Deduplication & Job Limit Rules)
+  // Helper for checking Repository & Installation Authorization (Step 10)
+  const verifyRepoAndInstallation = async (repoInfo: { id: number; full_name: string }) => {
+    const repo =
+      (await db.getRepositoryByGithubId(repoInfo.id)) ||
+      (await db.getRepositoryByFullName(repoInfo.full_name)) ||
+      (await db.getRepositoryById(String(repoInfo.id)));
+
+    if (!repo) {
+      return { repo: null, authorized: false, reason: "unconnected_repository" };
+    }
+
+    if (payload.installation) {
+      const payloadInstId = payload.installation.id;
+      const dbInstId = Number(repo.installation_id);
+      if (!Number.isNaN(dbInstId) && dbInstId !== payloadInstId) {
+        // Installation mismatch
+        return { repo, authorized: false, reason: "unauthorized_installation" };
+      }
+    }
+
+    return { repo, authorized: true, reason: null };
+  };
+
+  // 5. Handle Push Webhook Events
   if (eventType === "push") {
     const repoInfo = payload.repository;
     if (!repoInfo) {
@@ -158,17 +220,12 @@ export async function handleGitHubWebhook(
       };
     }
 
-    // Lookup repository in database by GitHub Repo ID, Full Name, or internal ID
-    const repo =
-      (await db.getRepositoryByGithubId(repoInfo.id)) ||
-      (await db.getRepositoryByFullName(repoInfo.full_name)) ||
-      (await db.getRepositoryById(String(repoInfo.id)));
-
-    if (!repo) {
+    const { repo, authorized, reason } = await verifyRepoAndInstallation(repoInfo);
+    if (!repo || !authorized) {
       return {
         status: 200,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ok: true, ignored: "unconnected_repository" }),
+        body: JSON.stringify({ ok: true, ignored: reason || "unconnected_repository" }),
       };
     }
 
@@ -268,9 +325,101 @@ export async function handleGitHubWebhook(
     };
   }
 
+  // 6. Handle Pull Request Webhook Events (Step 7)
+  if (eventType === "pull_request") {
+    const repoInfo = payload.repository;
+    const prInfo = payload.pull_request;
+
+    if (!repoInfo || !prInfo) {
+      return {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Missing repository or pull_request in payload" }),
+      };
+    }
+
+    // Filter PR actions: opened, synchronize, reopened trigger scans; closed is ignored safely
+    const prAction = action || "opened";
+    if (prAction === "closed") {
+      return {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ok: true, ignored: "pr_closed" }),
+      };
+    }
+
+    if (prAction !== "opened" && prAction !== "synchronize" && prAction !== "reopened") {
+      return {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ok: true, ignored: `unsupported_pr_action:${prAction}` }),
+      };
+    }
+
+    const { repo, authorized, reason } = await verifyRepoAndInstallation(repoInfo);
+    if (!repo || !authorized) {
+      return {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ok: true, ignored: reason || "unconnected_repository" }),
+      };
+    }
+
+    const headSha = prInfo.head?.sha || "head";
+    const headRef = prInfo.head?.ref || repo.default_branch || "main";
+
+    // Job limit enforcement
+    if (scanJobQueue.getPendingQueueLength() >= MAX_QUEUE_LIMIT) {
+      await db.createAuditLog({
+        action: "webhook.rejected_job_limit",
+        target_resource: `repo:${repo.id}`,
+        ip_address: ip,
+        user_agent: userAgent,
+        details: { pendingQueueLength: scanJobQueue.getPendingQueueLength() },
+      });
+
+      return {
+        status: 429,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Job limits exceeded, please retry later" }),
+      };
+    }
+
+    // Create scan record & enqueue job
+    const scan = await db.createScan({
+      repository_id: repo.id,
+      status: "queued",
+      trigger_type: "webhook_pr",
+      commit_sha: headSha,
+      branch: headRef,
+    });
+
+    await scanJobQueue.enqueueJob({
+      scanId: scan.id,
+      repoId: repo.id,
+      installationId: Number(repo.installation_id) || 1,
+      requestedByUserId: "github_webhook_pr",
+    });
+
+    await db.createAuditLog({
+      action: "webhook.pr_scan_queued",
+      target_resource: `scan:${scan.id}`,
+      ip_address: ip,
+      user_agent: userAgent,
+      details: { repoId: repo.id, commitSha: headSha, branch: headRef, prNumber: prInfo.number, action: prAction },
+    });
+
+    return {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ok: true, queued: true, scanId: scan.id, prNumber: prInfo.number }),
+    };
+  }
+
   return {
     status: 200,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ok: true, event: eventType, action }),
   };
 }
+
