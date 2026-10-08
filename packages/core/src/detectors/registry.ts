@@ -16,13 +16,9 @@ import {
   detectStripeUserControlledPrice,
   detectStripeSecretKeyClientLeak,
 } from "./stripe.js";
-import {
-  detectMissingRlsInMigrations,
-  detectPermissivePolicies,
-  detectServiceRoleLeaks,
-  detectStorageBucketIssues,
-} from "./supabase.js";
+import { detectMissingRlsInMigrations, detectPermissivePolicies, detectServiceRoleLeaks, detectStorageBucketIssues } from "./supabase.js";
 import { detectTestGaps } from "./test-gap.js";
+import { detectDeterministicIdor } from "../idor/detector.js";
 import { maskSecrets } from "../masking.js";
 import { DetectorRunResult, Finding, ScanDiagnostic } from "../types.js";
 
@@ -159,6 +155,12 @@ export const DETECTOR_REGISTRY: DetectorDefinition[] = [
         return [];
       }
     },
+  },
+  {
+    id: "detectDeterministicIdor",
+    name: "Detect Insecure Direct Object Reference (IDOR)",
+    file: "idor/detector.ts",
+    run: (filesMap) => detectDeterministicIdor(filesMap),
   },
 ];
 

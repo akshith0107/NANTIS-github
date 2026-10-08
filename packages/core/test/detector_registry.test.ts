@@ -27,8 +27,8 @@ describe("Centralized Detector Registry", () => {
     }
   });
 
-  it("should contain exactly 19 registered detectors", () => {
-    expect(DETECTOR_REGISTRY.length).toBe(19);
+  it("should contain exactly 20 registered detectors", () => {
+    expect(DETECTOR_REGISTRY.length).toBe(20);
   });
 
   it("should execute all detectors via runAllDetectors and aggregate findings", async () => {
