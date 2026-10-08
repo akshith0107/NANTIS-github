@@ -39,15 +39,21 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   },
 };
 
+import { RefutationEngine } from "../refutation/engine.js";
+
 /**
  * Main entry point running the deterministic IDOR engine over a filesMap.
  */
-export async function detectDeterministicIdor(filesMap: Map<string, string>): Promise<Finding[]> {
+export async function detectDeterministicIdor(
+  filesMap: Map<string, string>,
+  enableRefutation = true
+): Promise<Finding[]> {
   const findings: Finding[] = [];
   const indexedRepo = indexRepository(filesMap);
   const supabaseAnalyzer = new SupabaseAnalyzer(indexedRepo);
   const dataflowEngine = new BoundedDataflowEngine();
   const verifiers = new SecurityVerifiers();
+  const refutationEngine = new RefutationEngine();
 
   const dataflowResult = dataflowEngine.analyzeDataflow(
     indexedRepo.endpoints,
@@ -108,23 +114,30 @@ export async function detectDeterministicIdor(filesMap: Map<string, string>): Pr
 
         const fingerprint = `idor.owner-column.v1:${path.sourceEndpoint.filePath}:${path.paramName}:${path.sinkQuery.table}`;
 
-        findings.push(
-          createFinding({
-            ruleId: "idor.owner-column.v1",
-            title: "Insecure Direct Object Reference (IDOR) - Missing Ownership Filter",
-            severity: "high",
-            confidenceTier,
-            file: path.sourceEndpoint.filePath,
-            lineRange: {
-              startLine: path.sinkQuery.line,
-              endLine: path.sinkQuery.line + 2,
-            },
-            evidenceChain: finalVerification.evidenceChain,
-            unresolvedSteps: finalVerification.unresolvedSteps,
-            explanation: finalVerification.explanation,
-            fingerprint,
-          })
-        );
+        const candidateFinding = createFinding({
+          ruleId: "idor.owner-column.v1",
+          title: "Insecure Direct Object Reference (IDOR) - Missing Ownership Filter",
+          severity: "high",
+          confidenceTier,
+          file: path.sourceEndpoint.filePath,
+          lineRange: {
+            startLine: path.sinkQuery.line,
+            endLine: path.sinkQuery.line + 2,
+          },
+          evidenceChain: finalVerification.evidenceChain,
+          unresolvedSteps: finalVerification.unresolvedSteps,
+          explanation: finalVerification.explanation,
+          fingerprint,
+        });
+
+        if (enableRefutation) {
+          const refutationRes = await refutationEngine.refuteFinding(candidateFinding, filesMap);
+          if (!refutationRes.isRefuted) {
+            findings.push(candidateFinding);
+          }
+        } else {
+          findings.push(candidateFinding);
+        }
       }
     }
   }
