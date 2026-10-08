@@ -201,6 +201,26 @@ export class DatabaseClient {
     }
   }
 
+  async updateScanPublication(
+    scanId: string,
+    data: {
+      github_pr_number?: number | null;
+      github_pr_url?: string | null;
+      github_branch?: string | null;
+      publication_status?: "not_created" | "pending" | "published" | "failed" | null;
+      publication_error?: string | null;
+    }
+  ): Promise<void> {
+    const scan = this.scans.get(scanId);
+    if (scan) {
+      if (data.github_pr_number !== undefined) scan.github_pr_number = data.github_pr_number;
+      if (data.github_pr_url !== undefined) scan.github_pr_url = data.github_pr_url;
+      if (data.github_branch !== undefined) scan.github_branch = data.github_branch;
+      if (data.publication_status !== undefined) scan.publication_status = data.publication_status;
+      if (data.publication_error !== undefined) scan.publication_error = data.publication_error;
+    }
+  }
+
   async getScanById(id: string): Promise<ScanRow | null> {
     return this.scans.get(id) || null;
   }

@@ -40,6 +40,11 @@ export interface ScanRow {
   commit_sha: string;
   branch: string;
   github_check_run_id?: number | null;
+  github_pr_number?: number | null;
+  github_pr_url?: string | null;
+  github_branch?: string | null;
+  publication_status?: "not_created" | "pending" | "published" | "failed" | null;
+  publication_error?: string | null;
   triggered_by_user_id?: string | null;
   started_at?: string | null;
   completed_at?: string | null;

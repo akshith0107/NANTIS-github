@@ -257,6 +257,35 @@ export class PostgresDatabaseClient {
     await this.pool.query(query, [checkRunId, scanId]);
   }
 
+  async updateScanPublication(
+    scanId: string,
+    data: {
+      github_pr_number?: number | null;
+      github_pr_url?: string | null;
+      github_branch?: string | null;
+      publication_status?: "not_created" | "pending" | "published" | "failed" | null;
+      publication_error?: string | null;
+    }
+  ): Promise<void> {
+    const query = `
+      UPDATE scans
+      SET github_pr_number = COALESCE($1, github_pr_number),
+          github_pr_url = COALESCE($2, github_pr_url),
+          github_branch = COALESCE($3, github_branch),
+          publication_status = COALESCE($4, publication_status),
+          publication_error = COALESCE($5, publication_error)
+      WHERE id = $6;
+    `;
+    await this.pool.query(query, [
+      data.github_pr_number ?? null,
+      data.github_pr_url ?? null,
+      data.github_branch ?? null,
+      data.publication_status ?? null,
+      data.publication_error ?? null,
+      scanId,
+    ]);
+  }
+
   async getScanById(id: string): Promise<ScanRow | null> {
     const res = await this.pool.query<ScanRow>("SELECT * FROM scans WHERE id = $1", [id]);
     return res.rows[0] || null;

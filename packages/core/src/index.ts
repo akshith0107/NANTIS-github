@@ -28,4 +28,5 @@ export * from "./baseline.js";
 export * from "./rule-docs.js";
 export * from "./human-review-checklist.js";
 export * from "./cli/scan.js";
+export * from "./fixes/index.js";
 export * as fixes from "./fixes/index.js";
