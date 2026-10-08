@@ -8,3 +8,6 @@ scoreboard.json
 mutation-scoreboard.json
 .env
 .env.local
+*.d.ts.map
+*.js.map
+test-results/
