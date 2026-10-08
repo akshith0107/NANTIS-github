@@ -3,6 +3,8 @@ import path from "path";
 import pg from "pg";
 import { Finding, ScanDiagnostic } from "@nantis/core";
 import { JobStatus } from "@nantis/worker";
+import { updateGitHubCheckRun } from "../lib/github-checks.js";
+import { WebEnv } from "../lib/env.js";
 import {
   AuditLogRow,
   FalsePositiveReportRow,
@@ -229,11 +231,12 @@ export class PostgresDatabaseClient {
     trigger_type: "manual" | "webhook_push" | "webhook_pr";
     commit_sha: string;
     branch: string;
+    github_check_run_id?: number | null;
     triggered_by_user_id?: string | null;
   }): Promise<ScanRow> {
     const query = `
-      INSERT INTO scans (id, repository_id, status, trigger_type, commit_sha, branch, triggered_by_user_id, started_at)
-      VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, NOW())
+      INSERT INTO scans (id, repository_id, status, trigger_type, commit_sha, branch, github_check_run_id, triggered_by_user_id, started_at)
+      VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, NOW())
       RETURNING *;
     `;
     const res = await this.pool.query<ScanRow>(query, [
@@ -243,9 +246,15 @@ export class PostgresDatabaseClient {
       data.trigger_type,
       data.commit_sha,
       data.branch,
+      data.github_check_run_id || null,
       data.triggered_by_user_id || null,
     ]);
     return res.rows[0];
+  }
+
+  async updateScanCheckRunId(scanId: string, checkRunId: number): Promise<void> {
+    const query = "UPDATE scans SET github_check_run_id = $1 WHERE id = $2;";
+    await this.pool.query(query, [checkRunId, scanId]);
   }
 
   async getScanById(id: string): Promise<ScanRow | null> {
@@ -282,9 +291,53 @@ export class PostgresDatabaseClient {
       SET status = $1,
           completed_at = CASE WHEN $2 THEN NOW() ELSE completed_at END,
           error_message = COALESCE($3, error_message)
-      WHERE id = $4;
+      WHERE id = $4
+      RETURNING *;
     `;
-    await this.pool.query(query, [status, isFinished, errorMessage || null, scanId]);
+    const res = await this.pool.query<ScanRow>(query, [status, isFinished, errorMessage || null, scanId]);
+    const scan = res.rows[0];
+
+    if (scan && scan.github_check_run_id) {
+      const repo = await this.getRepositoryById(scan.repository_id);
+      if (repo && repo.full_name) {
+        const parts = repo.full_name.split("/");
+        if (parts.length === 2) {
+          const [owner, repoName] = parts;
+          const findings =
+            status === "done" || status === "completed" || status === "failed"
+              ? await this.getFindingsForScan(scanId)
+              : [];
+          const diagnostics =
+            status === "done" || status === "completed" || status === "failed"
+              ? await this.getScanDiagnostics(scanId)
+              : [];
+
+          const env: WebEnv = {
+            GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID || "test",
+            GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET || "test",
+            GITHUB_APP_ID: process.env.GITHUB_APP_ID || "test",
+            GITHUB_APP_PRIVATE_KEY: process.env.GITHUB_APP_PRIVATE_KEY || "test",
+            GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET || "test",
+            SESSION_SECRET: process.env.SESSION_SECRET || "test",
+            DATABASE_URL: process.env.DATABASE_URL || "postgresql://localhost:5432/nantis",
+            NODE_ENV: "test",
+          };
+
+          updateGitHubCheckRun({
+            owner,
+            repo: repoName,
+            checkRunId: Number(scan.github_check_run_id),
+            installationId: Number(repo.installation_id) || 1,
+            status,
+            scanId,
+            findings,
+            diagnostics,
+            errorMessage,
+            env,
+          }).catch(() => {});
+        }
+      }
+    }
   }
 
   async getScanStatus(scanId: string): Promise<{ status: JobStatus; errorMessage?: string }> {

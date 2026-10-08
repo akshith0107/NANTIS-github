@@ -35,10 +35,11 @@ export interface ScanRow {
   id: string; // UUID
   repository_id: string;
   status:
-    "queued" | "cloning" | "scanning" | "done" | "failed" | "pending" | "running" | "completed";
+    | "queued" | "cloning" | "scanning" | "done" | "failed" | "pending" | "running" | "completed";
   trigger_type: "manual" | "webhook_push" | "webhook_pr";
   commit_sha: string;
   branch: string;
+  github_check_run_id?: number | null;
   triggered_by_user_id?: string | null;
   started_at?: string | null;
   completed_at?: string | null;

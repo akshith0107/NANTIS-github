@@ -1,5 +1,7 @@
 import { Finding, ScanDiagnostic } from "@nantis/core";
 import { JobStatus } from "@nantis/worker";
+import { updateGitHubCheckRun } from "../lib/github-checks.js";
+import { WebEnv } from "../lib/env.js";
 import {
   AuditLogRow,
   FalsePositiveReportRow,
@@ -174,6 +176,7 @@ export class DatabaseClient {
     trigger_type: "manual" | "webhook_push" | "webhook_pr";
     commit_sha: string;
     branch: string;
+    github_check_run_id?: number | null;
     triggered_by_user_id?: string | null;
   }): Promise<ScanRow> {
     const newScan: ScanRow = {
@@ -183,11 +186,19 @@ export class DatabaseClient {
       trigger_type: data.trigger_type,
       commit_sha: data.commit_sha,
       branch: data.branch,
+      github_check_run_id: data.github_check_run_id || null,
       triggered_by_user_id: data.triggered_by_user_id,
       started_at: new Date().toISOString(),
     };
     this.scans.set(newScan.id, newScan);
     return newScan;
+  }
+
+  async updateScanCheckRunId(scanId: string, checkRunId: number): Promise<void> {
+    const scan = this.scans.get(scanId);
+    if (scan) {
+      scan.github_check_run_id = checkRunId;
+    }
   }
 
   async getScanById(id: string): Promise<ScanRow | null> {
@@ -218,6 +229,48 @@ export class DatabaseClient {
       }
       if (errorMessage !== undefined) {
         scan.error_message = errorMessage;
+      }
+
+      if (scan.github_check_run_id) {
+        const repo = await this.getRepositoryById(scan.repository_id);
+        if (repo && repo.full_name) {
+          const parts = repo.full_name.split("/");
+          if (parts.length === 2) {
+            const [owner, repoName] = parts;
+            const findings =
+              status === "done" || status === "completed" || status === "failed"
+                ? await this.getFindingsForScan(scanId)
+                : [];
+            const diagnostics =
+              status === "done" || status === "completed" || status === "failed"
+                ? await this.getScanDiagnostics(scanId)
+                : [];
+
+            const env: WebEnv = {
+              GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID || "test",
+              GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET || "test",
+              GITHUB_APP_ID: process.env.GITHUB_APP_ID || "test",
+              GITHUB_APP_PRIVATE_KEY: process.env.GITHUB_APP_PRIVATE_KEY || "test",
+              GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET || "test",
+              SESSION_SECRET: process.env.SESSION_SECRET || "test",
+              DATABASE_URL: process.env.DATABASE_URL || "postgresql://localhost:5432/nantis",
+              NODE_ENV: "test",
+            };
+
+            updateGitHubCheckRun({
+              owner,
+              repo: repoName,
+              checkRunId: scan.github_check_run_id,
+              installationId: Number(repo.installation_id) || 1,
+              status,
+              scanId,
+              findings,
+              diagnostics,
+              errorMessage,
+              env,
+            }).catch(() => {});
+          }
+        }
       }
     }
   }

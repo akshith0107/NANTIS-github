@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS scans (
   trigger_type VARCHAR(32) NOT NULL,
   commit_sha TEXT NOT NULL,
   branch TEXT NOT NULL,
+  github_check_run_id BIGINT,
   triggered_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ,

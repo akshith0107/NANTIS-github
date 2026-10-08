@@ -1,6 +1,7 @@
 import { db } from "../db/client.js";
 import { WebEnv } from "../lib/env.js";
 import { verifyGitHubWebhookSignature } from "../lib/webhook-signature.js";
+import { createGitHubCheckRun } from "../lib/github-checks.js";
 import { HttpResponse } from "./auth-login.js";
 import { scanJobQueue } from "./api-routes.js";
 
@@ -288,13 +289,27 @@ export async function handleGitHubWebhook(
       };
     }
 
-    // Create scan record & enqueue job
+    // Create scan record
+    const parts = repo.full_name.split("/");
+    let checkRunId: number | null = null;
+    if (parts.length === 2) {
+      const [owner, name] = parts;
+      checkRunId = await createGitHubCheckRun({
+        owner,
+        repo: name,
+        headSha: commitSha,
+        installationId: Number(repo.installation_id) || 1,
+        env,
+      });
+    }
+
     const scan = await db.createScan({
       repository_id: repo.id,
       status: "queued",
       trigger_type: "webhook_push",
       commit_sha: commitSha,
       branch: refBranch,
+      github_check_run_id: checkRunId,
     });
 
     pushDeduplicationMap.set(dedupKey, {
@@ -315,13 +330,13 @@ export async function handleGitHubWebhook(
       target_resource: `scan:${scan.id}`,
       ip_address: ip,
       user_agent: userAgent,
-      details: { repoId: repo.id, commitSha, branch: refBranch },
+      details: { repoId: repo.id, commitSha, branch: refBranch, checkRunId },
     });
 
     return {
       status: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ok: true, queued: true, scanId: scan.id }),
+      body: JSON.stringify({ ok: true, queued: true, scanId: scan.id, checkRunId }),
     };
   }
 
@@ -385,13 +400,27 @@ export async function handleGitHubWebhook(
       };
     }
 
-    // Create scan record & enqueue job
+    // Create scan record & GitHub Check Run
+    const prParts = repo.full_name.split("/");
+    let prCheckRunId: number | null = null;
+    if (prParts.length === 2) {
+      const [owner, name] = prParts;
+      prCheckRunId = await createGitHubCheckRun({
+        owner,
+        repo: name,
+        headSha,
+        installationId: Number(repo.installation_id) || 1,
+        env,
+      });
+    }
+
     const scan = await db.createScan({
       repository_id: repo.id,
       status: "queued",
       trigger_type: "webhook_pr",
       commit_sha: headSha,
       branch: headRef,
+      github_check_run_id: prCheckRunId,
     });
 
     await scanJobQueue.enqueueJob({
@@ -406,13 +435,13 @@ export async function handleGitHubWebhook(
       target_resource: `scan:${scan.id}`,
       ip_address: ip,
       user_agent: userAgent,
-      details: { repoId: repo.id, commitSha: headSha, branch: headRef, prNumber: prInfo.number, action: prAction },
+      details: { repoId: repo.id, commitSha: headSha, branch: headRef, prNumber: prInfo.number, action: prAction, checkRunId: prCheckRunId },
     });
 
     return {
       status: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ok: true, queued: true, scanId: scan.id, prNumber: prInfo.number }),
+      body: JSON.stringify({ ok: true, queued: true, scanId: scan.id, prNumber: prInfo.number, checkRunId: prCheckRunId }),
     };
   }
 
