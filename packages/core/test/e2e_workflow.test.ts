@@ -53,7 +53,7 @@ describe("End-to-End Workflow: Next.js + Supabase + Stripe Fixture Repo", () => 
       }
 
       // 2. Scan using shared detector registry
-      const findings = await runAllDetectors(filesMap, {
+      const { findings } = await runAllDetectors(filesMap, {
         targetFolder: tempDir,
         offlineMode: true,
       });

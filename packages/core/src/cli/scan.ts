@@ -50,10 +50,17 @@ export async function runScan(
       filesMap.set(file.relativePath, file.content);
     }
 
-    const rawFindings = await runAllDetectors(filesMap, {
+    const { findings: rawFindings, diagnostics } = await runAllDetectors(filesMap, {
       targetFolder: normalizedPath,
       offlineMode: true,
     });
+
+    if (!options.json && diagnostics.length > 0) {
+      console.warn("\n⚠️ [Analysis Warning] Some detectors encountered errors during scan:");
+      for (const diag of diagnostics) {
+        console.warn(`  - [${diag.detectorName || diag.detectorId}]: ${diag.message}`);
+      }
+    }
 
     const enrichedFindings = await attachGitAttributionToFindings(rawFindings, normalizedPath);
 

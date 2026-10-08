@@ -1,5 +1,4 @@
 import fs from "fs";
-import os from "os";
 import path from "path";
 import { runScan } from "@nantis/core";
 import { cloneRepositorySandboxed } from "@nantis/worker";
@@ -7,7 +6,7 @@ import { db } from "../db/client.js";
 import { WebEnv } from "../lib/env.js";
 import { decodeSession, encodeSession } from "../lib/session.js";
 import { parseAndValidateGitHubUrl } from "../lib/url-validator.js";
-import { RequestContext } from "./api-routes.js";
+import { RequestContext, scanJobQueue } from "./api-routes.js";
 import { HttpResponse } from "./auth-login.js";
 import {
   escapeHtml,
@@ -276,67 +275,40 @@ export async function handlePublicRepoScan(
 
   db.grantRepoAccess(user.id, repoRecord.id);
 
-  // 5. Shallow Clone to temp directory
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "nantis-scan-"));
+  // 5. Create scan record in database with queued status
+  const scan = await db.createScan({
+    repository_id: repoRecord.id,
+    commit_sha: "head-shallow",
+    branch: "main",
+    trigger_type: "manual",
+    status: "queued",
+  });
 
-  try {
-    // Clone via hardened sandbox module: shallow depth 1, submodules off, hooks off, symlinks off, LFS off
-    await cloneRepositorySandboxed({
-      repoUrl: cloneUrl,
-      branch: "main",
-      targetDir: tempDir,
-      maxRepoSizeBytes: 50 * 1024 * 1024,
-      timeoutMs: 30000,
-    });
-
-    // 6. Run AST scan pipeline (zero code execution)
-    const { findings } = await runScan(tempDir, { json: true });
-
-    const scan = await db.createScan({
-      repository_id: repoRecord.id,
-      commit_sha: "head-shallow",
-      branch: "main",
-      trigger_type: "manual",
-      status: "completed",
-    });
-
-    if (findings.length > 0) {
-      await db.saveScanFindings(scan.id, findings);
+  // 6. Enqueue scan job into existing ScanJobQueue
+  await scanJobQueue.enqueueJob(
+    {
+      scanId: scan.id,
+      repoId: repoRecord.id,
+      installationId: 1,
+      requestedByUserId: userId,
+    },
+    {},
+    async (targetDir: string) => {
+      await cloneRepositorySandboxed({
+        repoUrl: cloneUrl,
+        branch: "main",
+        targetDir,
+        maxRepoSizeBytes: 50 * 1024 * 1024,
+        timeoutMs: 30000,
+      });
     }
+  );
 
-    return {
-      status: 302,
-      headers: { Location: `/scans/${scan.id}` },
-      body: "",
-    };
-  } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error("Public repo clone/scan error:", errorMsg);
-
-    const scan = await db.createScan({
-      repository_id: repoRecord.id,
-      commit_sha: "head-shallow",
-      branch: "main",
-      trigger_type: "manual",
-      status: "failed",
-    });
-    await db.updateScanStatus(scan.id, "failed", `Failed to clone or scan public repository: ${errorMsg}`);
-
-    return {
-      status: 302,
-      headers: { Location: `/scans/${scan.id}` },
-      body: "",
-    };
-  } finally {
-    // Immediate Cleanup of cloned folder
-    try {
-      if (fs.existsSync(tempDir)) {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      }
-    } catch {
-      // Ignore cleanup error if file locked temporarily
-    }
-  }
+  return {
+    status: 302,
+    headers: { Location: `/scans/${scan.id}` },
+    body: "",
+  };
 }
 
 /**

@@ -37,7 +37,7 @@ describe("Centralized Detector Registry", () => {
       ["package.json", '{"name": "test-repo", "dependencies": {"express": "*"}}'],
     ]);
 
-    const findings = await runAllDetectors(sampleFiles, { offlineMode: true });
+    const { findings } = await runAllDetectors(sampleFiles, { offlineMode: true });
     expect(Array.isArray(findings)).toBe(true);
 
     // Verify secret detector fired via registry

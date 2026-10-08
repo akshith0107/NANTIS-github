@@ -148,10 +148,15 @@ export async function processScanJob(
         filesMap.set(f.relativePath, f.content);
       }
 
-      findings = await runAllDetectors(filesMap, {
+      const detectorResult = await runAllDetectors(filesMap, {
         targetFolder: jobTempDir,
         offlineMode: false,
       });
+      findings = detectorResult.findings;
+
+      if (dbAdapter.saveScanDiagnostics && detectorResult.diagnostics.length > 0) {
+        await dbAdapter.saveScanDiagnostics(payload.scanId, detectorResult.diagnostics);
+      }
 
       // Store ONLY masked findings (findings evidence chains contain [REDACTED_SECRET], zero source code files persisted)
       if (dbAdapter.saveScanFindings) {

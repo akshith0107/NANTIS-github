@@ -23,7 +23,8 @@ import {
   detectStorageBucketIssues,
 } from "./supabase.js";
 import { detectTestGaps } from "./test-gap.js";
-import { Finding } from "../types.js";
+import { maskSecrets } from "../masking.js";
+import { DetectorRunResult, Finding, ScanDiagnostic } from "../types.js";
 
 export interface DetectorContext {
   targetFolder?: string;
@@ -161,18 +162,38 @@ export const DETECTOR_REGISTRY: DetectorDefinition[] = [
   },
 ];
 
+export function sanitizeDiagnosticMessage(err: unknown): string {
+  const rawMsg = err instanceof Error ? err.message : String(err);
+  let sanitized = maskSecrets(rawMsg);
+  sanitized = sanitized.split("\n")[0];
+  sanitized = sanitized.replace(/[A-Za-z]:\\[^:\n\s]+/g, "[REDACTED_PATH]");
+  sanitized = sanitized.replace(/\/[^:\n\s]+\//g, "[REDACTED_PATH]/");
+  return sanitized.trim() || "Detector execution encountered an unexpected error";
+}
+
 export async function runAllDetectors(
   filesMap: Map<string, string>,
   context: DetectorContext = {}
-): Promise<Finding[]> {
+): Promise<DetectorRunResult> {
   const allFindings: Finding[] = [];
+  const diagnostics: ScanDiagnostic[] = [];
+
   for (const detector of DETECTOR_REGISTRY) {
     try {
       const findings = await detector.run(filesMap, context);
       allFindings.push(...findings);
-    } catch {
-      // Continue execution if a single detector encounters an unexpected error
+    } catch (err: unknown) {
+      const sanitizedMsg = sanitizeDiagnosticMessage(err);
+      diagnostics.push({
+        kind: "detector_error",
+        detectorId: detector.id,
+        detectorName: detector.name,
+        message: `Detector '${detector.name}' failed during analysis: ${sanitizedMsg}`,
+        fatal: false,
+        timestamp: new Date().toISOString(),
+      });
     }
   }
-  return allFindings;
+
+  return { findings: allFindings, diagnostics };
 }

@@ -1,4 +1,4 @@
-import { Finding } from "@nantis/core";
+import { Finding, ScanDiagnostic } from "@nantis/core";
 import { JobStatus } from "@nantis/worker";
 import {
   AuditLogRow,
@@ -21,6 +21,7 @@ export class DatabaseClient {
   private findings = new Map<string, FindingRow>();
   private falsePositiveReports = new Map<string, FalsePositiveReportRow>();
   private findingLabels = new Map<string, FindingLabelRow>();
+  private scanDiagnosticsMap = new Map<string, ScanDiagnostic[]>();
   private auditLogs: AuditLogRow[] = [];
 
   // User Repository Permissions (represents GitHub confirmed access)
@@ -235,6 +236,15 @@ export class DatabaseClient {
         scan_id: scanId,
       });
     }
+  }
+
+  async saveScanDiagnostics(scanId: string, diagnostics: ScanDiagnostic[]): Promise<void> {
+    const existing = this.scanDiagnosticsMap.get(scanId) || [];
+    this.scanDiagnosticsMap.set(scanId, [...existing, ...diagnostics]);
+  }
+
+  async getScanDiagnostics(scanId: string): Promise<ScanDiagnostic[]> {
+    return this.scanDiagnosticsMap.get(scanId) || [];
   }
 
   // Findings Operations
@@ -598,6 +608,7 @@ export class DatabaseClient {
     this.userInstallations.clear();
     this.anonymousRateLimits.clear();
     this.userSnapshotTaken.clear();
+    this.scanDiagnosticsMap.clear();
     this.auditLogs = [];
   }
 }

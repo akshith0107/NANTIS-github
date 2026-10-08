@@ -1,4 +1,4 @@
-import { Finding } from "@nantis/core";
+import { Finding, ScanDiagnostic } from "@nantis/core";
 
 export type JobStatus = "queued" | "cloning" | "scanning" | "done" | "failed";
 
@@ -42,5 +42,7 @@ export interface DatabaseStateAdapter {
   updateScanStatus(scanId: string, status: JobStatus, errorMessage?: string): Promise<void>;
   getScanStatus(scanId: string): Promise<{ status: JobStatus; errorMessage?: string }>;
   saveScanFindings?(scanId: string, findings: Finding[]): Promise<void>;
+  saveScanDiagnostics?(scanId: string, diagnostics: ScanDiagnostic[]): Promise<void>;
+  getScanDiagnostics?(scanId: string): Promise<ScanDiagnostic[]>;
   createAuditLog?(payload: AuditLogPayload): Promise<unknown>;
 }

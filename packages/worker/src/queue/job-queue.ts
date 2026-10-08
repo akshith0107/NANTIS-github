@@ -1,4 +1,4 @@
-import { Finding } from "@nantis/core";
+import { Finding, ScanDiagnostic } from "@nantis/core";
 import { DEFAULT_JOB_OPTIONS, processScanJob } from "../processor/scan-processor.js";
 import {
   AuditLogPayload,
@@ -12,6 +12,7 @@ import {
 export class InMemoryDbAdapter implements DatabaseStateAdapter {
   private scanStatuses = new Map<string, { status: JobStatus; errorMessage?: string }>();
   private scanFindings = new Map<string, Finding[]>();
+  private scanDiagnostics = new Map<string, ScanDiagnostic[]>();
   private auditLogs: AuditLogPayload[] = [];
 
   async updateScanStatus(scanId: string, status: JobStatus, errorMessage?: string): Promise<void> {
@@ -34,6 +35,14 @@ export class InMemoryDbAdapter implements DatabaseStateAdapter {
     return this.scanFindings.get(scanId) || [];
   }
 
+  async saveScanDiagnostics(scanId: string, diagnostics: ScanDiagnostic[]): Promise<void> {
+    this.scanDiagnostics.set(scanId, diagnostics);
+  }
+
+  async getScanDiagnostics(scanId: string): Promise<ScanDiagnostic[]> {
+    return this.scanDiagnostics.get(scanId) || [];
+  }
+
   async createAuditLog(payload: AuditLogPayload): Promise<void> {
     this.auditLogs.push(payload);
   }
@@ -45,6 +54,7 @@ export class InMemoryDbAdapter implements DatabaseStateAdapter {
   clear() {
     this.scanStatuses.clear();
     this.scanFindings.clear();
+    this.scanDiagnostics.clear();
     this.auditLogs = [];
   }
 }

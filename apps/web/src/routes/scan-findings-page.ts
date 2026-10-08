@@ -113,6 +113,7 @@ export async function renderScanFindingsPage(
   }
 
   const userRepos = userId ? await db.getUserAccessibleRepositories(userId) : [];
+  const diagnostics = await db.getScanDiagnostics(scanId);
 
   const content = renderScanFindingsContent({
     scan,
@@ -124,6 +125,7 @@ export async function renderScanFindingsPage(
     prevCounts: { crit: prevCrit, high: prevHigh, med: prevMed, low: prevLow },
     userLabels,
     totalScansCount,
+    diagnostics,
   });
 
   return {

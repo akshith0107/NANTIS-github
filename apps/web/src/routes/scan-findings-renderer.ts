@@ -32,6 +32,7 @@ export interface ScanFindingsRenderData {
   prevCounts: { crit: number; high: number; med: number; low: number };
   userLabels: Map<string, string>;
   totalScansCount: number;
+  diagnostics?: Array<{ kind: string; detectorId?: string; detectorName?: string; message: string; fatal: boolean }>;
 }
 
 export function renderScanFindingsContent(data: ScanFindingsRenderData): string {
@@ -44,6 +45,7 @@ export function renderScanFindingsContent(data: ScanFindingsRenderData): string 
     prevScan,
     prevCounts,
     userLabels,
+    diagnostics,
   } = data;
 
   const critFindings = findings.filter((f) => f.severity === "critical");
@@ -141,6 +143,34 @@ export function renderScanFindingsContent(data: ScanFindingsRenderData): string 
           <div style="color: #3b82f6; font-size: 12px; margin-top: 2px;">Sign in with GitHub to save scan history, view private repos, and create fix PRs.</div>
         </div>
         <a href="/auth/login" class="btn btn-black" style="font-size: 13px;">Connect GitHub to review fixes</a>
+      </div>
+    `
+        : ""
+    }
+    ${
+      diagnostics && diagnostics.length > 0
+        ? `
+      <div style="background: #fffbe6; border: 1px solid #ffe58f; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+        <div style="color: #d48806; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+          <span>⚠️</span> Analysis completed with warnings
+        </div>
+        <p style="color: #8c6b00; font-size: 13px; margin: 6px 0 12px 0;">
+          One or more security detectors encountered an issue during scan execution. Analysis completed with remaining detectors, but coverage may be incomplete.
+        </p>
+        <ul style="margin: 0; padding-left: 20px; color: #594200; font-size: 13px; font-family: monospace;">
+          ${diagnostics
+            .map(
+              (d) => `
+            <li style="margin-bottom: 4px;">
+              <strong>${escapeHtml(d.detectorName || d.detectorId || "Detector")}:</strong> ${escapeHtml(d.message)}
+            </li>
+          `
+            )
+            .join("")}
+        </ul>
+        <div style="margin-top: 10px; font-size: 12px; color: #8c6b00; font-weight: 600;">
+          Recommendation: Review detector configuration or target source files and re-run the scan.
+        </div>
       </div>
     `
         : ""

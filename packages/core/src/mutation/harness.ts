@@ -136,7 +136,8 @@ export function __auxiliaryHelperModule() {
  * Runs all security detectors against a set of files and aggregates findings.
  */
 export async function runDetectors(filesMap: Map<string, string>): Promise<Finding[]> {
-  return runAllDetectors(filesMap, { offlineMode: true, targetFolder: "/fixtures/mutation-harness" });
+  const result = await runAllDetectors(filesMap, { offlineMode: true, targetFolder: "/fixtures/mutation-harness" });
+  return result.findings;
 }
 
 /**

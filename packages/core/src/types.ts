@@ -82,3 +82,19 @@ export interface ScanResult {
   summaryMessage: string;
   scannedFilesCount: number;
 }
+
+export type DiagnosticKind = "detector_error" | "file_parse_error" | "analysis_warning";
+
+export interface ScanDiagnostic {
+  kind: DiagnosticKind;
+  detectorId?: string;
+  detectorName?: string;
+  message: string;
+  fatal: boolean;
+  timestamp?: string;
+}
+
+export interface DetectorRunResult {
+  findings: Finding[];
+  diagnostics: ScanDiagnostic[];
+}
