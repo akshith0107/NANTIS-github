@@ -12,7 +12,6 @@ export * from "./detectors/git-history.js";
 export * from "./detectors/dependencies.js";
 export * from "./detectors/config.js";
 export * from "./detectors/ci-audit.js";
-export * from "./detectors/routes-and-migrations.js";
 export * from "./detectors/nextjs-rules.js";
 export * from "./detectors/supabase.js";
 export * from "./detectors/stripe.js";

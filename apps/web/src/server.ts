@@ -32,6 +32,7 @@ const env = validateWebEnv({
   GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID || "dev_client_id",
   GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET || "dev_client_secret",
   GITHUB_APP_ID: process.env.GITHUB_APP_ID || "99999",
+  GITHUB_APP_SLUG: process.env.GITHUB_APP_SLUG || "nantis-app",
   GITHUB_APP_PRIVATE_KEY: process.env.GITHUB_APP_PRIVATE_KEY || "dev_private_key",
   GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET || "dev_webhook_secret",
   SESSION_SECRET: process.env.SESSION_SECRET || "dev_session_secret_32_characters_key_here",
@@ -58,259 +59,286 @@ async function renderNotConnectedPage(
   }
 
   return renderPageLayout({
-    title: `${title} - Not Connected`,
-    activeNav: navName,
+    title,
     userLogin,
+    activeNav: navName,
     userRepos,
     content: `
-      <div class="ui-card" style="text-align: center; padding: 60px 24px; max-width: 600px; margin: 40px auto;">
-        <div style="font-size: 40px; margin-bottom: 16px;">🔌</div>
-        <h2 style="font-size: 24px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${title}</h2>
-        <div style="display: inline-block; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; margin-bottom: 16px;">
-          Not connected yet
-        </div>
-        <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-          This section is currently running in local development mode. Remote GitHub integration for ${title.toLowerCase()} is not connected.
+      <div class="ui-card" style="text-align: center; padding: 48px 24px; max-width: 600px; margin: 40px auto;">
+        <div style="font-size: 3rem; margin-bottom: 16px;">🔌</div>
+        <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 8px;">Connect GitHub Required</h2>
+        <p style="color: var(--text-dim); margin-bottom: 24px; font-size: 0.95rem;">
+          This view requires an active GitHub repository connection. Sign in with GitHub or select repositories to access this page.
         </p>
-        <a href="/" class="btn btn-black">Back to Dashboard</a>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <a href="/auth/login" class="btn btn-black">Connect GitHub</a>
+          <a href="/" class="btn btn-outline">Back to Home</a>
+        </div>
       </div>
     `,
   });
 }
 
-function parseCookies(cookieHeader?: string): Record<string, string> {
+export const server = http.createServer(async (req, res) => {
+  const parsedUrl = url.parse(req.url || "/", true);
+  const pathName = parsedUrl.pathname || "/";
+
   const cookies: Record<string, string> = {};
-  if (!cookieHeader) return cookies;
-  const pairs = cookieHeader.split(";");
-  for (const pair of pairs) {
-    const idx = pair.indexOf("=");
-    if (idx > 0) {
-      const key = pair.substring(0, idx).trim();
-      const val = pair.substring(idx + 1).trim();
-      cookies[key] = val;
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    cookieHeader.split(";").forEach((cookie) => {
+      const parts = cookie.split("=");
+      if (parts.length === 2) {
+        cookies[parts[0].trim()] = parts[1].trim();
+      }
+    });
+  }
+
+  let bodyText = "";
+  if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+    req.on("data", (chunk) => {
+      bodyText += chunk;
+    });
+    await new Promise((resolve) => req.on("end", resolve));
+  }
+
+  const reqContext: RequestContext = {
+    cookies,
+    body: bodyText,
+    ip: req.socket.remoteAddress || "127.0.0.1",
+    userAgent: req.headers["user-agent"] || "Unknown",
+    method: req.method,
+    path: pathName,
+    headers: req.headers as Record<string, string>,
+    clientIp: req.socket.remoteAddress || "127.0.0.1",
+    query: parsedUrl.query as Record<string, string>,
+  };
+
+  // Route: /
+  if (pathName === "/") {
+    const response = await renderHomePage(reqContext, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Route: /rules
+  if (pathName === "/rules") {
+    const response = await renderRulesCatalogPage();
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Route: /privacy
+  if (pathName === "/privacy") {
+    const response = await renderPrivacyPage();
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Route: /auth/login
+  if (pathName === "/auth/login") {
+    const { handleAuthLogin } = await import("./routes/auth-login.js");
+    const response = handleAuthLogin(env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Route: /auth/callback
+  if (pathName === "/auth/callback") {
+    const { handleAuthCallback } = await import("./routes/auth-callback.js");
+    const response = await handleAuthCallback(
+      {
+        code: parsedUrl.query.code as string,
+        state: parsedUrl.query.state as string,
+        installation_id: parsedUrl.query.installation_id as string,
+        cookies,
+        ip: reqContext.clientIp,
+        userAgent: reqContext.userAgent,
+      },
+      env
+    );
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Route: /auth/logout
+  if (pathName === "/auth/logout") {
+    const { handleAuthLogout } = await import("./routes/auth-logout.js");
+    const response = await handleAuthLogout(reqContext, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Route: /auth/disconnect
+  if (pathName === "/auth/disconnect") {
+    const { handleAuthDisconnect } = await import("./routes/auth-disconnect.js");
+    const response = await handleAuthDisconnect(reqContext, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Route: /repos
+  if (pathName === "/repos") {
+    const response = await renderRepositoriesPage(reqContext, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Route: /scans/:id
+  const scanMatch = pathName.match(/^\/scans\/([^\/]+)$/);
+  if (scanMatch) {
+    const scanId = scanMatch[1];
+    const response = await renderScanFindingsPage(reqContext, scanId, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Route: /scans/:id/report
+  const reportMatch = pathName.match(/^\/scans\/([^\/]+)\/report$/);
+  if (reportMatch) {
+    const scanId = reportMatch[1];
+    const response = await renderScanReportPage(reqContext, scanId, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Route: /findings/:id/fix
+  const fixMatch = pathName.match(/^\/findings\/([^\/]+)\/fix$/);
+  if (fixMatch) {
+    const findingId = fixMatch[1];
+    const response = await renderFixReviewPage(reqContext, findingId, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Navigation pages requiring GitHub connection when unauthenticated
+  if (pathName === "/scans") {
+    const html = await renderNotConnectedPage("scans", "Scans", reqContext.cookies?.["nantis_session"]);
+    res.writeHead(200, getDefaultHeaders());
+    res.end(html);
+    return;
+  }
+
+  if (pathName === "/findings") {
+    const html = await renderNotConnectedPage("findings", "Scan Findings", reqContext.cookies?.["nantis_session"]);
+    res.writeHead(200, getDefaultHeaders());
+    res.end(html);
+    return;
+  }
+
+  if (pathName === "/fixes") {
+    const html = await renderNotConnectedPage("fixes", "Fix Review", reqContext.cookies?.["nantis_session"]);
+    res.writeHead(200, getDefaultHeaders());
+    res.end(html);
+    return;
+  }
+
+  if (pathName === "/pull-requests") {
+    const html = await renderNotConnectedPage("pull-requests", "Pull Requests", reqContext.cookies?.["nantis_session"]);
+    res.writeHead(200, getDefaultHeaders());
+    res.end(html);
+    return;
+  }
+
+  if (pathName === "/settings") {
+    const html = await renderNotConnectedPage("settings", "Settings", reqContext.cookies?.["nantis_session"]);
+    res.writeHead(200, getDefaultHeaders());
+    res.end(html);
+    return;
+  }
+
+  // Dev routes (Local development only)
+  if (pathName === "/auth/dev-login") {
+    const response = await handleDevLogin(reqContext, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  if (pathName === "/api/dev/scan") {
+    const response = await handleDevScan(reqContext, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  if (pathName === "/api/dev/scan-public-repo") {
+    const response = await handlePublicRepoScan(reqContext, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  const labelMatch = pathName.match(/^\/api\/findings\/([^\/]+)\/label$/);
+  if (labelMatch) {
+    const response = await handleSetFindingLabel(reqContext, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  if (pathName === "/api/findings/export-labels") {
+    const response = await handleExportLabels(reqContext, env);
+    res.writeHead(response.status, response.headers);
+    res.end(response.body);
+    return;
+  }
+
+  // Dispatch to API Route Registry
+  for (const route of API_ROUTE_REGISTRY) {
+    if (route.method === req.method) {
+      const regex = new RegExp("^" + route.path.replace(/:[^\/]+/g, "([^/]+)") + "$");
+      const match = pathName.match(regex);
+      if (match) {
+        const params = match.slice(1);
+        const response = await route.handler(reqContext, ...params, env);
+        res.writeHead(response.status, response.headers);
+        res.end(response.body);
+        return;
+      }
     }
   }
-  return cookies;
-}
 
-export function createWebServer() {
-  return http.createServer(async (req, res) => {
-    try {
-      const parsedUrl = url.parse(req.url || "/", true);
-      const pathname = parsedUrl.pathname || "/";
-      const cookies = parseCookies(req.headers.cookie);
-      const clientIp = req.socket.remoteAddress || "127.0.0.1";
+  // 404 Not Found Page
+  const sessionToken = reqContext.cookies?.["nantis_session"];
+  let userLogin: string | undefined;
+  if (sessionToken) {
+    const session = decodeSession(sessionToken, env.SESSION_SECRET);
+    userLogin = session?.githubLogin;
+  }
 
-      let bodyObj: unknown = undefined;
-      if (req.method === "POST" || req.method === "PUT") {
-        const buffers: Buffer[] = [];
-        for await (const chunk of req) {
-          buffers.push(chunk);
-        }
-        const bodyStr = Buffer.concat(buffers).toString("utf-8");
-        if (req.headers["content-type"]?.includes("application/json")) {
-          try {
-            bodyObj = JSON.parse(bodyStr);
-          } catch {
-            bodyObj = bodyStr;
-          }
-        } else if (req.headers["content-type"]?.includes("application/x-www-form-urlencoded")) {
-          bodyObj = Object.fromEntries(new URLSearchParams(bodyStr));
-        } else {
-          bodyObj = bodyStr;
-        }
-      }
+  res.writeHead(404, getDefaultHeaders());
+  res.end(
+    renderPageLayout({
+      title: "404 Page Not Found",
+      userLogin,
+      content: `
+        <div class="ui-card" style="text-align: center; padding: 48px 24px; max-width: 500px; margin: 40px auto;">
+          <h1 style="font-size: 4rem; font-weight: 800; color: #cbd5e1; margin-bottom: 8px;">404</h1>
+          <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 12px;">Page Not Found</h2>
+          <p style="color: var(--text-dim); margin-bottom: 24px; font-size: 0.9rem;">
+            The page you requested could not be found or has been moved.
+          </p>
+          <a href="/" class="btn btn-black">Return Home</a>
+        </div>
+      `,
+    })
+  );
+});
 
-      const reqContext: RequestContext = {
-        method: req.method || "GET",
-        path: pathname,
-        headers: req.headers as Record<string, string>,
-        cookies,
-        sessionToken: cookies["nantis_session"],
-        clientIp,
-        query: parsedUrl.query as Record<string, string>,
-        body: bodyObj,
-      };
-
-      // Home Page
-      if (pathname === "/") {
-        const response = await renderHomePage(reqContext, env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      // Dev Routes & Actions
-      if (pathname === "/auth/dev-login") {
-        const response = await handleDevLogin(reqContext, env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      if (pathname === "/api/dev/scan") {
-        const response = await handleDevScan(reqContext, env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      if (pathname === "/api/dev/scan-public-repo") {
-        const response = await handlePublicRepoScan(reqContext, env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      // Labeling and Export
-      if (pathname.match(/^\/api\/findings\/[a-zA-Z0-9_-]+\/label$/) && req.method === "POST") {
-        const response = await handleSetFindingLabel(reqContext, env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      if (pathname === "/api/labels/export" && req.method === "GET") {
-        const response = await handleExportLabels(reqContext, env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      // Page Renderers
-      if (pathname === "/repos") {
-        const response = await renderRepositoriesPage(reqContext, env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      if (pathname === "/privacy") {
-        const response = await renderPrivacyPage();
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      if (pathname === "/rules") {
-        const response = await renderRulesCatalogPage();
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      if (pathname === "/fixes") {
-        res.writeHead(200, getDefaultHeaders());
-        res.end(await renderNotConnectedPage("fixes", "Fixes Management", reqContext.sessionToken));
-        return;
-      }
-
-      if (pathname === "/pull-requests") {
-        res.writeHead(200, getDefaultHeaders());
-        res.end(await renderNotConnectedPage("pull-requests", "Pull Requests", reqContext.sessionToken));
-        return;
-      }
-
-      if (pathname === "/settings") {
-        res.writeHead(200, getDefaultHeaders());
-        res.end(await renderNotConnectedPage("settings", "Settings", reqContext.sessionToken));
-        return;
-      }
-
-      const scanMatch = pathname.match(/^\/scans\/([a-zA-Z0-9_-]+)$/);
-      if (scanMatch && req.method === "GET") {
-        const response = await renderScanFindingsPage(reqContext, scanMatch[1], env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      const scanReportMatch = pathname.match(/^\/scans\/([a-zA-Z0-9_-]+)\/report$/);
-      if (scanReportMatch && req.method === "GET") {
-        const response = await renderScanReportPage(reqContext, scanReportMatch[1], env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      // Finding Detail & Fix Review Page
-      const fixReviewMatch = pathname.match(/^\/findings\/([a-zA-Z0-9_-]+)\/fix$/);
-      if (fixReviewMatch) {
-        const response = await renderFixReviewPage(reqContext, fixReviewMatch[1], env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      // Legacy Approve Endpoint Compatibility
-      const findingApproveMatch = pathname.match(/^\/api\/findings\/([a-zA-Z0-9_-]+)\/approve$/);
-      if (findingApproveMatch) {
-        const response = await renderFixReviewPage(reqContext, findingApproveMatch[1], env);
-        res.writeHead(response.status, response.headers);
-        res.end(response.body);
-        return;
-      }
-
-      // API Routes
-      for (const route of API_ROUTE_REGISTRY) {
-        if (route.method === req.method) {
-          const routePattern = new RegExp(
-            "^" + route.path.replace(/:[a-zA-Z0-9_]+/g, "([a-zA-Z0-9_-]+)") + "$"
-          );
-          if (routePattern.test(pathname)) {
-            const response = await route.handler(reqContext, env);
-            res.writeHead(response.status, response.headers);
-            res.end(typeof response.body === "string" ? response.body : JSON.stringify(response.body));
-            return;
-          }
-        }
-      }
-
-      // 404 Not Found
-      let userLogin: string | undefined;
-      let userRepos: { id: string; name: string; full_name: string }[] = [];
-      if (reqContext.sessionToken) {
-        const session = decodeSession(reqContext.sessionToken, env.SESSION_SECRET);
-        if (session?.userId) {
-          userLogin = session.githubLogin;
-          userRepos = await db.getUserAccessibleRepositories(session.userId);
-        }
-      }
-
-      res.writeHead(404, getDefaultHeaders());
-      res.end(
-        renderPageLayout({
-          title: "404 Page Not Found",
-          userLogin,
-          userRepos,
-          content: `<div class="ui-card" style="text-align: center; padding: 60px 24px; max-width: 600px; margin: 40px auto;"><h1 style="font-size: 32px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">404</h1><h2 style="font-size: 20px; font-weight: 700; color: #475569; margin-bottom: 16px;">Page Not Found</h2><p style="color: #64748b; font-size: 14px; margin-bottom: 24px;">The page you requested does not exist or has been moved.</p><a href="/" class="btn btn-black">Back to Dashboard</a></div>`,
-        })
-      );
-    } catch (err) {
-      console.error("HTTP Server Error:", err);
-      res.writeHead(500, getDefaultHeaders());
-      res.end(
-        renderPageLayout({
-          title: "500 Internal Error",
-          content: `<h1>500 Internal Server Error</h1><p>An unexpected server error occurred.</p>`,
-        })
-      );
-    }
-  });
-}
-
-export function startDevServer() {
-  const server = createWebServer();
+if (process.env.NODE_ENV !== "test") {
   server.listen(PORT, HOST, () => {
-    console.log(`\n============================================================`);
-    console.log(`NANTIS Web Server running at http://${HOST}:${PORT}`);
-    console.log(`In-memory data. Everything resets on restart.`);
-    console.log(`============================================================\n`);
+    console.log(`[NANTIS Web App] Server listening at http://${HOST}:${PORT}`);
   });
-  return server;
-}
-
-// Auto-start server if executed directly
-if (process.argv[1] && process.argv[1].endsWith("server.ts")) {
-  startDevServer();
 }

@@ -7,19 +7,17 @@ import {
   detectMiddlewareMatcherGaps,
   detectMissingOwnershipChecks,
   detectMassAssignmentIssues,
-} from "./nextjs-rules.js";
-import {
   detectApiRouteAuthIssues,
-  detectMissingRlsInMigrations,
-  detectStripeWebhookIssues,
-} from "./routes-and-migrations.js";
+} from "./nextjs-rules.js";
 import { detectSecrets } from "./secrets.js";
 import {
+  detectStripeWebhookIssues,
   detectStripeWebhookParsedBody,
   detectStripeUserControlledPrice,
   detectStripeSecretKeyClientLeak,
 } from "./stripe.js";
 import {
+  detectMissingRlsInMigrations,
   detectPermissivePolicies,
   detectServiceRoleLeaks,
   detectStorageBucketIssues,
@@ -67,19 +65,19 @@ export const DETECTOR_REGISTRY: DetectorDefinition[] = [
   {
     id: "detectApiRouteAuthIssues",
     name: "Detect Unprotected API Routes",
-    file: "routes-and-migrations.ts",
+    file: "nextjs-rules.ts",
     run: (filesMap) => detectApiRouteAuthIssues(filesMap),
   },
   {
     id: "detectMissingRlsInMigrations",
     name: "Detect Missing RLS in Database Migrations",
-    file: "routes-and-migrations.ts",
+    file: "supabase.ts",
     run: (filesMap) => detectMissingRlsInMigrations(filesMap),
   },
   {
     id: "detectStripeWebhookIssues",
     name: "Detect Unverified Stripe Webhooks",
-    file: "routes-and-migrations.ts",
+    file: "stripe.ts",
     run: (filesMap) => detectStripeWebhookIssues(filesMap),
   },
   {

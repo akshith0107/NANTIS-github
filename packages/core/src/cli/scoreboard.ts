@@ -6,15 +6,13 @@ import { detectConfigIssues } from "../detectors/config.js";
 import { detectDependencies } from "../detectors/dependencies.js";
 import {
   detectApiRouteAuthIssues,
-  detectMissingRlsInMigrations,
-} from "../detectors/routes-and-migrations.js";
-import {
   detectServerActionAuthIssues,
   detectMiddlewareMatcherGaps,
   detectMissingOwnershipChecks,
   detectMassAssignmentIssues,
 } from "../detectors/nextjs-rules.js";
 import {
+  detectMissingRlsInMigrations,
   detectPermissivePolicies,
   detectServiceRoleLeaks,
   detectStorageBucketIssues,
