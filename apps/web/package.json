@@ -5,11 +5,15 @@
   "type": "module",
   "dependencies": {
     "@nantis/core": "workspace:*",
-    "@nantis/worker": "workspace:*"
+    "@nantis/worker": "workspace:*",
+    "pg": "^8.23.1"
   },
   "scripts": {
     "dev": "tsx src/server.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }

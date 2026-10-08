@@ -79,7 +79,7 @@ export async function handleDevLogin(
     default_branch: "main",
   });
 
-  db.grantRepoAccess(devUser.id, devRepo.id);
+  await db.grantRepoAccess(devUser.id, devRepo.id);
 
   // Mint session token
   const sessionToken = encodeSession(
@@ -168,7 +168,7 @@ export async function handleDevScan(
     default_branch: "main",
   });
 
-  db.grantRepoAccess(devUser.id, devRepo.id);
+  await db.grantRepoAccess(devUser.id, devRepo.id);
 
   // Run static AST scan (never executes code)
   const { findings } = await runScan(resolvedTarget, { json: true });
@@ -273,7 +273,7 @@ export async function handlePublicRepoScan(
     default_branch: "main",
   });
 
-  db.grantRepoAccess(user.id, repoRecord.id);
+  await db.grantRepoAccess(user.id, repoRecord.id);
 
   // 5. Create scan record in database with queued status
   const scan = await db.createScan({

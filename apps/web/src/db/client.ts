@@ -270,15 +270,15 @@ export class DatabaseClient {
   }
 
   // Access Control Operations
-  grantRepoAccess(userId: string, repoId: string): void {
+  async grantRepoAccess(userId: string, repoId: string): Promise<void> {
     this.userRepoAccess.add(`${userId}:${repoId}`);
   }
 
-  revokeRepoAccess(userId: string, repoId: string): void {
+  async revokeRepoAccess(userId: string, repoId: string): Promise<void> {
     this.userRepoAccess.delete(`${userId}:${repoId}`);
   }
 
-  revokeAllAccessForUser(userId: string): void {
+  async revokeAllAccessForUser(userId: string): Promise<void> {
     for (const key of Array.from(this.userRepoAccess.keys())) {
       if (key.startsWith(`${userId}:`)) {
         this.userRepoAccess.delete(key);
@@ -613,4 +613,26 @@ export class DatabaseClient {
   }
 }
 
-export const db = new DatabaseClient();
+import { PostgresDatabaseClient } from "./postgres-client.js";
+export { PostgresDatabaseClient };
+
+export type IDatabaseClient = DatabaseClient | PostgresDatabaseClient;
+
+export function createDatabaseClient(): IDatabaseClient {
+  const dbUrl = process.env.DATABASE_URL;
+  const nodeEnv = process.env.NODE_ENV;
+
+  if (dbUrl) {
+    return new PostgresDatabaseClient(dbUrl);
+  }
+
+  if (nodeEnv === "production") {
+    throw new Error(
+      "CRITICAL DATABASE CONFIGURATION ERROR: Production mode requires DATABASE_URL to be set for PostgreSQL persistence. Production will NOT fall back to volatile in-memory storage."
+    );
+  }
+
+  return new DatabaseClient();
+}
+
+export const db = createDatabaseClient();

@@ -134,7 +134,7 @@ export async function handleAuthCallback(
           private: r.private,
           default_branch: "main",
         });
-        db.grantRepoAccess(user.id, repoRow.id);
+        await db.grantRepoAccess(user.id, repoRow.id);
       }
 
       // Save user repo snapshot with configurable TTL (default 1 hr)

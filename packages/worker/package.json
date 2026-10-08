@@ -8,10 +8,14 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@nantis/core": "workspace:*"
+    "@nantis/core": "workspace:*",
+    "pg": "^8.23.1"
   },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }
