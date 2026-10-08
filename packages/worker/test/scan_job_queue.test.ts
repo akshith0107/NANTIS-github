@@ -130,11 +130,11 @@ describe("Scan Job Queue & Worker Ephemeral Sandbox (packages/worker)", () => {
     const customFetcher = async (targetDir: string) => {
       fs.writeFileSync(
         path.join(targetDir, "package.json"),
-        JSON.stringify({ dependencies: { "non-existent-pkg-nantis-test": "1.0.0" } })
+        JSON.stringify({ dependencies: { lodash: "4.17.15" } })
       );
       fs.writeFileSync(
         path.join(targetDir, "package-lock.json"),
-        JSON.stringify({ packages: { "node_modules/non-existent-pkg-nantis-test": { version: "1.0.0" } } })
+        JSON.stringify({ packages: { "node_modules/lodash": { version: "4.17.15" } } })
       );
     };
 

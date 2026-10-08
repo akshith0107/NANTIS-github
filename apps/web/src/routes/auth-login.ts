@@ -1,6 +1,6 @@
 import { WebEnv } from "../lib/env.js";
-import { buildGitHubAuthorizeUrl } from "../lib/github-oauth.js";
-import { generateCsrfStateToken, serializeCookie } from "../lib/session.js";
+import { buildGitHubAuthorizeUrl, generateOAuthState } from "../lib/github-oauth.js";
+import { serializeCookie } from "../lib/session.js";
 
 export interface HttpResponse {
   status: number;
@@ -8,8 +8,8 @@ export interface HttpResponse {
   body?: string;
 }
 
-export function handleAuthLogin(env: WebEnv, redirectUri?: string): HttpResponse {
-  const csrfState = generateCsrfStateToken();
+export function handleAuthLogin(env: WebEnv, redirectUri?: string, userId?: string): HttpResponse {
+  const csrfState = generateOAuthState(userId);
   const authorizeUrl = buildGitHubAuthorizeUrl(env.GITHUB_CLIENT_ID, csrfState, redirectUri);
 
   const isProd = env.NODE_ENV === "production";

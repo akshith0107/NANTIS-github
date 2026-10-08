@@ -73,8 +73,7 @@ describe("Sandbox Verification Runner Security Hardening", () => {
 
       expect(report.passed).toBe(true);
       expect(report.isWeak).toBe(true);
-      expect(report.summaryText).toContain("tests not run: container runner unconfigured");
-      expect(report.summaryText).toContain("(WEAK verification)");
+      expect(report.summaryText).toBe("PARTIALLY VERIFIED (typecheck not run)");
       expect(fs.existsSync(markerFile), "SECURITY FAILURE: Malicious test script ran on host!").toBe(false);
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });

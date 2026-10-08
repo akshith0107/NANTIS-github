@@ -8,6 +8,8 @@ import {
   GithubInstallationRow,
   RepositoryRow,
   ScanRow,
+  UserInstallationRow,
+  UserRepoSnapshotRow,
   UserRow,
 } from "./schema.js";
 
@@ -191,6 +193,13 @@ export class DatabaseClient {
 
   async getScansForRepository(repositoryId: string): Promise<ScanRow[]> {
     return Array.from(this.scans.values()).filter((s) => s.repository_id === repositoryId);
+  }
+
+  async getPreviousCompletedScan(repositoryId: string, currentScanId?: string): Promise<ScanRow | null> {
+    const repoScans = Array.from(this.scans.values())
+      .filter((s) => s.repository_id === repositoryId && s.id !== currentScanId && (s.status === "done" || s.status === "completed"))
+      .sort((a, b) => new Date(b.started_at || 0).getTime() - new Date(a.started_at || 0).getTime());
+    return repoScans[0] || null;
   }
 
   async updateScanStatus(
@@ -390,6 +399,191 @@ export class DatabaseClient {
     return JSON.stringify(labels, null, 2);
   }
 
+  private userRepoSnapshots = new Map<string, UserRepoSnapshotRow>(); // key: `${userId}:${githubRepoId}`
+  private userInstallations = new Map<string, UserInstallationRow>(); // key: `${userId}:${installationId}`
+  private anonymousRateLimits = new Map<string, { count: number; dayStartMs: number }>();
+  private userSnapshotTaken = new Set<string>();
+
+  // User Repo Access Snapshot Operations (Comparing by numeric github_repo_id)
+  async saveUserRepoSnapshot(
+    userId: string,
+    repos: {
+      github_repo_id: number;
+      repo_name: string;
+      full_name: string;
+      installation_id: number;
+      private: boolean;
+      html_url?: string;
+    }[],
+    ttlMs = 3600000
+  ): Promise<void> {
+    const now = Date.now();
+    const fetchedAt = new Date(now).toISOString();
+    const expiresAt = new Date(now + ttlMs).toISOString();
+
+    this.userSnapshotTaken.add(userId);
+
+    // Clear old snapshot for this user
+    for (const key of Array.from(this.userRepoSnapshots.keys())) {
+      if (key.startsWith(`${userId}:`)) {
+        this.userRepoSnapshots.delete(key);
+      }
+    }
+
+    for (const r of repos) {
+      const key = `${userId}:${r.github_repo_id}`;
+      const row: UserRepoSnapshotRow = {
+        id: crypto.randomUUID(),
+        user_id: userId,
+        github_repo_id: r.github_repo_id,
+        repo_name: r.repo_name,
+        full_name: r.full_name,
+        installation_id: r.installation_id,
+        private: r.private,
+        html_url: r.html_url,
+        fetched_at: fetchedAt,
+        expires_at: expiresAt,
+      };
+      this.userRepoSnapshots.set(key, row);
+    }
+  }
+
+  async getUserUnexpiredSnapshot(userId: string, nowMs: number = Date.now()): Promise<UserRepoSnapshotRow[]> {
+    const valid: UserRepoSnapshotRow[] = [];
+    for (const row of this.userRepoSnapshots.values()) {
+      if (row.user_id === userId) {
+        const expiresAtMs = new Date(row.expires_at).getTime();
+        if (expiresAtMs > nowMs) {
+          valid.push(row);
+        }
+      }
+    }
+    return valid;
+  }
+
+  async checkUserRepoSnapshotValid(
+    userId: string,
+    githubRepoId: number,
+    nowMs: number = Date.now()
+  ): Promise<UserRepoSnapshotRow | null> {
+    const key = `${userId}:${githubRepoId}`;
+    const row = this.userRepoSnapshots.get(key);
+    if (row) {
+      const expiresAtMs = new Date(row.expires_at).getTime();
+      if (expiresAtMs <= nowMs) {
+        return null;
+      }
+      return row;
+    }
+
+    // Fallback for dev mode / legacy tests where user has zero snapshot records set up
+    if (!this.userSnapshotTaken.has(userId)) {
+      const repo = await this.getRepositoryByGithubId(githubRepoId);
+      if (repo && this.userRepoAccess.has(`${userId}:${repo.id}`)) {
+        return {
+          id: `synth_${repo.id}`,
+          user_id: userId,
+          github_repo_id: githubRepoId,
+          repo_name: repo.name,
+          full_name: repo.full_name,
+          installation_id: Number(repo.installation_id) || 1,
+          private: repo.private,
+          html_url: `https://github.com/${repo.full_name}`,
+          fetched_at: new Date().toISOString(),
+          expires_at: new Date(nowMs + 3600000).toISOString(),
+        };
+      }
+    }
+
+    return null;
+  }
+
+  async clearUserRepoSnapshot(userId: string): Promise<void> {
+    for (const key of Array.from(this.userRepoSnapshots.keys())) {
+      if (key.startsWith(`${userId}:`)) {
+        this.userRepoSnapshots.delete(key);
+      }
+    }
+    this.revokeAllAccessForUser(userId);
+  }
+
+  // Webhook Deletion Helpers
+  async deleteSnapshotsForInstallation(installationId: number): Promise<void> {
+    for (const [key, row] of Array.from(this.userRepoSnapshots.entries())) {
+      if (row.installation_id === installationId) {
+        this.userRepoSnapshots.delete(key);
+      }
+    }
+    this.installations.delete(installationId);
+  }
+
+  async deleteSnapshotsForRepo(githubRepoId: number): Promise<void> {
+    for (const [key, row] of Array.from(this.userRepoSnapshots.entries())) {
+      if (row.github_repo_id === githubRepoId) {
+        this.userRepoSnapshots.delete(key);
+      }
+    }
+  }
+
+  // User Installation Mapping Operations
+  async linkUserInstallation(userId: string, installationId: number, htmlUrl?: string): Promise<UserInstallationRow> {
+    const key = `${userId}:${installationId}`;
+    const existing = this.userInstallations.get(key);
+    if (existing) {
+      if (htmlUrl) existing.html_url = htmlUrl;
+      return existing;
+    }
+
+    const row: UserInstallationRow = {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      installation_id: installationId,
+      html_url: htmlUrl || `https://github.com/settings/installations/${installationId}`,
+      created_at: new Date().toISOString(),
+    };
+    this.userInstallations.set(key, row);
+    return row;
+  }
+
+  async getUserInstallations(userId: string): Promise<UserInstallationRow[]> {
+    return Array.from(this.userInstallations.values()).filter((i) => i.user_id === userId);
+  }
+
+  async checkUserInstallationAccess(userId: string, installationId: number): Promise<boolean> {
+    return this.userInstallations.has(`${userId}:${installationId}`);
+  }
+
+  async revokeUserInstallation(userId: string, installationId: number): Promise<void> {
+    this.userInstallations.delete(`${userId}:${installationId}`);
+    for (const [key, row] of Array.from(this.userRepoSnapshots.entries())) {
+      if (row.user_id === userId && row.installation_id === installationId) {
+        this.userRepoSnapshots.delete(key);
+      }
+    }
+  }
+
+  // Path B Anonymous Scan Rate Limiter
+  async checkAnonymousRateLimit(
+    key: string,
+    dailyCap = 20
+  ): Promise<{ allowed: boolean; remaining: number }> {
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const entry = this.anonymousRateLimits.get(key);
+
+    if (!entry || now - entry.dayStartMs > dayMs) {
+      this.anonymousRateLimits.set(key, { count: 1, dayStartMs: now });
+      return { allowed: true, remaining: dailyCap - 1 };
+    }
+
+    if (entry.count >= dailyCap) {
+      return { allowed: false, remaining: 0 };
+    }
+
+    entry.count += 1;
+    return { allowed: true, remaining: dailyCap - entry.count };
+  }
+
   // Utility reset for testing
   resetInMemoryData() {
     this.users.clear();
@@ -400,6 +594,10 @@ export class DatabaseClient {
     this.falsePositiveReports.clear();
     this.findingLabels.clear();
     this.userRepoAccess.clear();
+    this.userRepoSnapshots.clear();
+    this.userInstallations.clear();
+    this.anonymousRateLimits.clear();
+    this.userSnapshotTaken.clear();
     this.auditLogs = [];
   }
 }

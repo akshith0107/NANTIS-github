@@ -37,8 +37,8 @@ describe("Patch Engine & Structured Edits", () => {
     ].join("\n");
 
     const diff = generateUnifiedDiff("app/api/route.ts", before, after);
-    expect(diff).toContain("--- app/api/route.ts");
-    expect(diff).toContain("+++ app/api/route.ts");
+    expect(diff).toContain("--- a/app/api/route.ts");
+    expect(diff).toContain("+++ b/app/api/route.ts");
     expect(diff).toContain("@@ -3,6 +3,9 @@");
     expect(diff).toContain(" line 3");
     expect(diff).toContain("+inserted line 1");
@@ -190,50 +190,38 @@ describe("Patch Engine & Structured Edits", () => {
   });
 });
 
+import { execSync } from "child_process";
+
 /**
- * Independent patch applicator helper for testing unified diff outputs without external dependencies.
+ * Native git apply patch applicator helper for testing unified diff outputs.
+ * Uses system git apply in a temporary git repository to verify real git compatibility.
  */
-function applyUnifiedDiff(originalContent: string, diffText: string): string {
-  const originalLines = originalContent.length === 0 ? [] : originalContent.split(/\r?\n/);
-  const diffLines = diffText.split(/\r?\n/);
+function applyUnifiedDiff(beforeContent: string, diffText: string): string {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "git-apply-test-"));
+  try {
+    const fileMatch = diffText.match(/^---\s+(?:a\/)?([^\s\r\n]+)/m);
+    const targetFile = fileMatch ? fileMatch[1] : "file.txt";
+    const filePath = path.join(tempDir, targetFile);
+    const patchPath = path.join(tempDir, "patch.diff");
 
-  const resultLines: string[] = [];
-  let origIdx = 0;
+    const normalizedBefore = beforeContent.replace(/\r\n/g, "\n");
+    const normalizedDiff = diffText.replace(/\r\n/g, "\n");
 
-  for (let l = 0; l < diffLines.length; l++) {
-    const line = diffLines[l];
-    if (line.startsWith("---") || line.startsWith("+++")) {
-      continue;
-    }
+    execSync("git init", { cwd: tempDir, stdio: "ignore" });
+    execSync("git config core.autocrlf false", { cwd: tempDir, stdio: "ignore" });
+    execSync('git config user.name "Test"', { cwd: tempDir, stdio: "ignore" });
+    execSync('git config user.email "test@test.com"', { cwd: tempDir, stdio: "ignore" });
 
-    if (line.startsWith("@@")) {
-      const match = line.match(/@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/);
-      if (match) {
-        const hunkStartOrig = parseInt(match[1], 10);
-        const targetIdx = Math.max(0, hunkStartOrig - 1);
-        while (origIdx < targetIdx && origIdx < originalLines.length) {
-          resultLines.push(originalLines[origIdx]);
-          origIdx++;
-        }
-      }
-      continue;
-    }
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, normalizedBefore, "utf-8");
+    execSync("git add .", { cwd: tempDir, stdio: "ignore" });
+    execSync('git commit -m "initial"', { cwd: tempDir, stdio: "ignore" });
 
-    if (line.startsWith(" ")) {
-      const contextLine = line.substring(1);
-      resultLines.push(contextLine);
-      origIdx++;
-    } else if (line.startsWith("-")) {
-      origIdx++;
-    } else if (line.startsWith("+")) {
-      resultLines.push(line.substring(1));
-    }
+    fs.writeFileSync(patchPath, normalizedDiff, "utf-8");
+    execSync("git apply --whitespace=nowarn patch.diff", { cwd: tempDir, stdio: ["ignore", "pipe", "pipe"] });
+
+    return fs.readFileSync(filePath, "utf-8");
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
   }
-
-  while (origIdx < originalLines.length) {
-    resultLines.push(originalLines[origIdx]);
-    origIdx++;
-  }
-
-  return resultLines.join("\n");
 }

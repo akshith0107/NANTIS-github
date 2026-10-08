@@ -58,4 +58,23 @@ describe("Git History Secrets Scanner (packages/core/src/detectors/git-history.t
     expect(finding?.explanation).toContain("ROTATE THIS KEY IMMEDIATELY");
     expect(finding?.explanation.toLowerCase()).toContain("removing from history is not enough");
   });
+
+  it("should not scan git history or report parent history when target folder does not directly contain a .git directory", async () => {
+    // Add a secret to parent git repo history
+    const secretFilePath = path.join(tmpGitDir, "secret.ts");
+    fs.writeFileSync(secretFilePath, `export const KEY = "sk_live_PARENT_HISTORICAL_SECRET_1234567890";\n`);
+    execSync("git add .", { cwd: tmpGitDir });
+    execSync('git commit -m "Add parent secret"', { cwd: tmpGitDir });
+
+    // Create a clean subfolder WITHOUT a .git folder directly inside it
+    const subfolder = path.join(tmpGitDir, "clean-subfolder");
+    fs.mkdirSync(subfolder, { recursive: true });
+    fs.writeFileSync(path.join(subfolder, "app.ts"), "console.log('Clean app');\n");
+
+    // Scan the clean subfolder directly
+    const findings = await scanGitHistory(subfolder);
+
+    // Must return empty findings array because .git is not inside subfolder
+    expect(findings).toEqual([]);
+  });
 });

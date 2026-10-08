@@ -1,8 +1,8 @@
-import { execFileSync } from "child_process";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { runScan } from "@nantis/core";
+import { cloneRepositorySandboxed } from "@nantis/worker";
 import { db } from "../db/client.js";
 import { WebEnv } from "../lib/env.js";
 import { decodeSession, encodeSession } from "../lib/session.js";
@@ -280,29 +280,14 @@ export async function handlePublicRepoScan(
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "nantis-scan-"));
 
   try {
-    // Clone with maximum security flags: depth 1, hooks disabled, LFS disabled, symlinks disabled
-    execFileSync(
-      "git",
-      [
-        "clone",
-        "--depth",
-        "1",
-        "--single-branch",
-        "-c",
-        "core.hooksPath=/dev/null",
-        "-c",
-        "filter.lfs.smudge=",
-        "-c",
-        "filter.lfs.clean=",
-        "-c",
-        "filter.lfs.process=",
-        "-c",
-        "core.symlinks=false",
-        cloneUrl,
-        tempDir,
-      ],
-      { timeout: 30000, stdio: "ignore" }
-    );
+    // Clone via hardened sandbox module: shallow depth 1, submodules off, hooks off, symlinks off, LFS off
+    await cloneRepositorySandboxed({
+      repoUrl: cloneUrl,
+      branch: "main",
+      targetDir: tempDir,
+      maxRepoSizeBytes: 50 * 1024 * 1024,
+      timeoutMs: 30000,
+    });
 
     // 6. Run AST scan pipeline (zero code execution)
     const { findings } = await runScan(tempDir, { json: true });

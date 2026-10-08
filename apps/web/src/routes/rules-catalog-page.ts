@@ -1,4 +1,5 @@
 import { RULE_EXPLANATIONS } from "@nantis/core";
+import { getDefaultHeaders, renderPageLayout } from "./ui-templates.js";
 import { HttpResponse } from "./auth-login.js";
 
 export async function renderRulesCatalogPage(): Promise<HttpResponse> {
@@ -7,64 +8,46 @@ export async function renderRulesCatalogPage(): Promise<HttpResponse> {
   const catalogHtml = ruleEntries
     .map(
       (rule) => `
-    <div class="rule-card" id="rule-${rule.ruleId}">
-      <div class="rule-header">
-        <h2>${rule.title}</h2>
-        <code class="rule-id-badge">${rule.ruleId}</code>
+    <div class="ui-card" id="rule-${rule.ruleId}" style="margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+        <h2 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0;">${rule.title}</h2>
+        <span style="background: #2563eb; color: #ffffff; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; font-family: monospace;">${rule.ruleId}</span>
       </div>
-      <div class="rule-section">
-        <h3>What's Wrong</h3>
-        <p>${rule.whatsWrong}</p>
+      <div style="margin-top: 12px;">
+        <h3 style="font-size: 11px; text-transform: uppercase; color: #64748b; margin: 0 0 4px 0; letter-spacing: 0.05em; font-weight: 700;">What's Wrong</h3>
+        <p style="margin: 0 0 14px 0; color: #334155; line-height: 1.5; font-size: 14px;">${rule.whatsWrong}</p>
       </div>
-      <div class="rule-section">
-        <h3>How a Stranger Could Abuse It</h3>
-        <p>${rule.howStrangerCouldAbuseIt}</p>
+      <div>
+        <h3 style="font-size: 11px; text-transform: uppercase; color: #64748b; margin: 0 0 4px 0; letter-spacing: 0.05em; font-weight: 700;">How a Stranger Could Abuse It</h3>
+        <p style="margin: 0 0 14px 0; color: #334155; line-height: 1.5; font-size: 14px;">${rule.howStrangerCouldAbuseIt}</p>
       </div>
-      <div class="rule-section">
-        <h3>How to Fix It</h3>
-        <p>${rule.howToFixIt}</p>
+      <div>
+        <h3 style="font-size: 11px; text-transform: uppercase; color: #64748b; margin: 0 0 4px 0; letter-spacing: 0.05em; font-weight: 700;">How to Fix It</h3>
+        <p style="margin: 0; color: #334155; line-height: 1.5; font-size: 14px;">${rule.howToFixIt}</p>
       </div>
     </div>
   `
     )
     .join("");
 
-  const pageHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nantis Security Rules Catalog</title>
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 2rem; }
-    .header { text-align: center; margin-bottom: 3rem; }
-    .header h1 { font-size: 2.25rem; color: #60a5fa; margin-bottom: 0.5rem; }
-    .header p { color: #94a3b8; font-size: 1.1rem; }
-    .catalog-grid { display: grid; gap: 1.5rem; max-width: 1100px; margin: 0 auto; }
-    .rule-card { background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; padding: 1.5rem; }
-    .rule-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #334155; padding-bottom: 0.75rem; }
-    .rule-header h2 { margin: 0; font-size: 1.25rem; color: #f1f5f9; }
-    .rule-id-badge { background: #3b82f6; color: #ffffff; padding: 0.25rem 0.6rem; border-radius: 0.375rem; font-size: 0.85rem; }
-    .rule-section { margin-top: 1rem; }
-    .rule-section h3 { font-size: 0.95rem; text-transform: uppercase; color: #94a3b8; margin: 0 0 0.25rem 0; letter-spacing: 0.05em; }
-    .rule-section p { margin: 0; color: #cbd5e1; line-height: 1.5; font-size: 0.95rem; }
-  </style>
-</head>
-<body>
-  <div style="background:#f59e0b;color:#000;text-align:center;padding:6px;font-weight:bold;">DEV MODE - In-Memory Local Development</div>
-  <div class="header">
-    <h1>Nantis Rules Catalog</h1>
-    <p>Comprehensive public documentation of static rules, vulnerability patterns, and mitigation guides.</p>
-  </div>
-  <div class="catalog-grid">
-    ${catalogHtml}
-  </div>
-</body>
-</html>`;
+  const content = `
+    <div style="max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+      <div style="text-align: center; margin-bottom: 8px;">
+        <h1 style="font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Nantis Rules Catalog</h1>
+        <p style="color: #64748b; font-size: 14px;">Comprehensive public documentation of static rules, vulnerability patterns, and mitigation guides.</p>
+      </div>
+      <div>
+        ${catalogHtml}
+      </div>
+    </div>
+  `;
 
   return {
     status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-    body: pageHtml,
+    headers: getDefaultHeaders(),
+    body: renderPageLayout({
+      title: "Rules Catalog",
+      content,
+    }),
   };
 }

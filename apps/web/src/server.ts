@@ -17,6 +17,8 @@ import { renderRulesCatalogPage } from "./routes/rules-catalog-page.js";
 import { renderScanFindingsPage } from "./routes/scan-findings-page.js";
 import { renderScanReportPage } from "./routes/scan-report-page.js";
 import { API_ROUTE_REGISTRY } from "./routes/registry.js";
+import { decodeSession } from "./lib/session.js";
+import { db } from "./db/client.js";
 import { getDefaultHeaders, renderPageLayout } from "./routes/ui-templates.js";
 
 // 1. Enforce NODE_ENV check on startup
@@ -39,6 +41,42 @@ const env = validateWebEnv({
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = "127.0.0.1";
+
+async function renderNotConnectedPage(
+  navName: "dashboard" | "repositories" | "scans" | "findings" | "fixes" | "pull-requests" | "settings",
+  title: string,
+  sessionToken?: string
+) {
+  let userLogin: string | undefined;
+  let userRepos: { id: string; name: string; full_name: string }[] = [];
+  if (sessionToken) {
+    const session = decodeSession(sessionToken, env.SESSION_SECRET);
+    if (session?.userId) {
+      userLogin = session.githubLogin;
+      userRepos = await db.getUserAccessibleRepositories(session.userId);
+    }
+  }
+
+  return renderPageLayout({
+    title: `${title} - Not Connected`,
+    activeNav: navName,
+    userLogin,
+    userRepos,
+    content: `
+      <div class="ui-card" style="text-align: center; padding: 60px 24px; max-width: 600px; margin: 40px auto;">
+        <div style="font-size: 40px; margin-bottom: 16px;">🔌</div>
+        <h2 style="font-size: 24px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">${title}</h2>
+        <div style="display: inline-block; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; margin-bottom: 16px;">
+          Not connected yet
+        </div>
+        <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+          This section is currently running in local development mode. Remote GitHub integration for ${title.toLowerCase()} is not connected.
+        </p>
+        <a href="/" class="btn btn-black">Back to Dashboard</a>
+      </div>
+    `,
+  });
+}
 
 function parseCookies(cookieHeader?: string): Record<string, string> {
   const cookies: Record<string, string> = {};
@@ -161,6 +199,24 @@ export function createWebServer() {
         return;
       }
 
+      if (pathname === "/fixes") {
+        res.writeHead(200, getDefaultHeaders());
+        res.end(await renderNotConnectedPage("fixes", "Fixes Management", reqContext.sessionToken));
+        return;
+      }
+
+      if (pathname === "/pull-requests") {
+        res.writeHead(200, getDefaultHeaders());
+        res.end(await renderNotConnectedPage("pull-requests", "Pull Requests", reqContext.sessionToken));
+        return;
+      }
+
+      if (pathname === "/settings") {
+        res.writeHead(200, getDefaultHeaders());
+        res.end(await renderNotConnectedPage("settings", "Settings", reqContext.sessionToken));
+        return;
+      }
+
       const scanMatch = pathname.match(/^\/scans\/([a-zA-Z0-9_-]+)$/);
       if (scanMatch && req.method === "GET") {
         const response = await renderScanFindingsPage(reqContext, scanMatch[1], env);
@@ -211,11 +267,23 @@ export function createWebServer() {
       }
 
       // 404 Not Found
+      let userLogin: string | undefined;
+      let userRepos: { id: string; name: string; full_name: string }[] = [];
+      if (reqContext.sessionToken) {
+        const session = decodeSession(reqContext.sessionToken, env.SESSION_SECRET);
+        if (session?.userId) {
+          userLogin = session.githubLogin;
+          userRepos = await db.getUserAccessibleRepositories(session.userId);
+        }
+      }
+
       res.writeHead(404, getDefaultHeaders());
       res.end(
         renderPageLayout({
           title: "404 Page Not Found",
-          content: `<h1>404 Page Not Found</h1><p>The page you requested does not exist.</p>`,
+          userLogin,
+          userRepos,
+          content: `<div class="ui-card" style="text-align: center; padding: 60px 24px; max-width: 600px; margin: 40px auto;"><h1 style="font-size: 32px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">404</h1><h2 style="font-size: 20px; font-weight: 700; color: #475569; margin-bottom: 16px;">Page Not Found</h2><p style="color: #64748b; font-size: 14px; margin-bottom: 24px;">The page you requested does not exist or has been moved.</p><a href="/" class="btn btn-black">Back to Dashboard</a></div>`,
         })
       );
     } catch (err) {

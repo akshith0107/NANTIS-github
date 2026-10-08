@@ -1,13 +1,16 @@
 import child_process from "child_process";
 import fs from "fs";
+import path from "path";
 import { walkDirectory } from "@nantis/core";
 
 export interface CloneSandboxOptions {
   repoUrl: string;
-  branch: string;
+  branch?: string;
   targetDir: string;
   token?: string;
   maxRepoSizeBytes?: number;
+  maxFileCount?: number;
+  timeoutMs?: number;
 }
 
 /**
@@ -18,10 +21,20 @@ export function sanitizeGitErrorMessage(err: unknown, token?: string): string {
   if (token) {
     msg = msg.replaceAll(token, "[REDACTED_TOKEN]");
   }
+  msg = msg.replace(/https?:\/\/[^@\s]+@/g, "https://");
+
+  if (msg.includes("exceeds maximum")) {
+    return msg;
+  }
+
   if (
     msg.includes("cloning failed") ||
     msg.includes("fatal:") ||
-    msg.includes("git clone failed")
+    msg.includes("git clone failed") ||
+    msg.includes("Git clone failed") ||
+    msg.includes("timed out") ||
+    msg.includes("ETIMEDOUT") ||
+    msg.includes("REDACTED")
   ) {
     return "Failed to clone repository source tree";
   }
@@ -31,31 +44,36 @@ export function sanitizeGitErrorMessage(err: unknown, token?: string): string {
 /**
  * Perform a secure, sandboxed shallow git clone.
  * Disables git hooks, filter drivers (such as LFS smudge scripts), symlinks,
- * and system/global git configs to guarantee NO malicious repo script execution.
+ * submodules, and system/global git configs to guarantee NO malicious repo script execution.
  */
 export async function cloneRepositorySandboxed(options: CloneSandboxOptions): Promise<void> {
-  const { repoUrl, branch, targetDir, token, maxRepoSizeBytes } = options;
+  const { repoUrl, branch, targetDir, token, maxRepoSizeBytes, maxFileCount, timeoutMs } = options;
 
-  // Prepare clean target directory
+  // Prepare clean target directory parent
   if (fs.existsSync(targetDir)) {
     fs.rmSync(targetDir, { recursive: true, force: true });
   }
-  fs.mkdirSync(targetDir, { recursive: true });
+  fs.mkdirSync(path.dirname(targetDir), { recursive: true });
 
-  // Format repository URL with token if provided (kept in memory only)
-  let authenticatedUrl = repoUrl;
-  if (token && repoUrl.startsWith("https://")) {
-    authenticatedUrl = repoUrl.replace("https://", `https://x-access-token:${token}@`);
-  }
+  // Keep plain repository URL (no credentials in URL, zero token in .git/config)
+  const plainUrl = repoUrl;
 
   // Construct secure git clone command flags
-  const gitArgs = [
+  const gitArgs: string[] = [
+    "-c",
+    "protocol.file.allow=always",
     "clone",
     "--depth",
     "1",
     "--single-branch",
-    "--branch",
-    branch || "main",
+    "--no-recurse-submodules",
+  ];
+
+  if (branch) {
+    gitArgs.push("--branch", branch);
+  }
+
+  gitArgs.push(
     "-c",
     "core.hooksPath=",
     "-c",
@@ -64,43 +82,74 @@ export async function cloneRepositorySandboxed(options: CloneSandboxOptions): Pr
     "filter.lfs.smudge=",
     "-c",
     "filter.lfs.clean=",
-    authenticatedUrl,
-    targetDir,
-  ];
+    "-c",
+    "filter.lfs.process=",
+    plainUrl,
+    targetDir
+  );
 
-  const env = {
+  const env: Record<string, string | undefined> = {
     ...process.env,
     GIT_CONFIG_NOSYSTEM: "1",
     GIT_CONFIG_GLOBAL: "",
     GIT_TERMINAL_PROMPT: "0",
   };
 
-  try {
-    await new Promise<void>((resolve, reject) => {
-      child_process.execFile("git", gitArgs, { env, timeout: 30000 }, (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve();
-        }
-      });
-    });
-  } catch (err: unknown) {
-    const safeMsg = sanitizeGitErrorMessage(err, token);
-    throw new Error(safeMsg);
+  // Pass token via GIT_CONFIG_COUNT / KEY / VALUE environment variables (zero process argv exposure)
+  if (token) {
+    env.GIT_CONFIG_COUNT = "1";
+    env.GIT_CONFIG_KEY_0 = "http.extraHeader";
+    env.GIT_CONFIG_VALUE_0 = `Authorization: Bearer ${token}`;
   }
 
-  // Check repository disk size limit
-  if (maxRepoSizeBytes && maxRepoSizeBytes > 0 && fs.existsSync(targetDir)) {
-    let totalSizeBytes = 0;
-    const files = walkDirectory(targetDir);
-    for (const f of files) {
-      totalSizeBytes += Buffer.byteLength(f.content, "utf-8");
+  const actualTimeout = timeoutMs || 30000;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      child_process.execFile(
+        "git",
+        gitArgs,
+        {
+          env,
+          timeout: actualTimeout,
+          maxBuffer: 10 * 1024 * 1024,
+        },
+        (error, _stdout, stderr) => {
+          if (error) {
+            const sanitizedErr = sanitizeGitErrorMessage(stderr || error.message, token);
+            reject(new Error(sanitizedErr));
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+  } catch (err) {
+    if (fs.existsSync(targetDir)) {
+      fs.rmSync(targetDir, { recursive: true, force: true });
+    }
+    throw new Error(sanitizeGitErrorMessage(err, token));
+  }
+
+  // Post-clone size and file count enforcement
+  if (maxRepoSizeBytes || maxFileCount) {
+    const scannedFiles = walkDirectory(targetDir);
+    if (maxFileCount && scannedFiles.length > maxFileCount) {
+      if (fs.existsSync(targetDir)) {
+        fs.rmSync(targetDir, { recursive: true, force: true });
+      }
+      throw new Error(`Repository exceeds maximum allowed file count limit of ${maxFileCount} files`);
     }
 
-    if (totalSizeBytes > maxRepoSizeBytes) {
+    const totalSize = scannedFiles.reduce((acc, f) => acc + (f.content ? f.content.length : 0), 0);
+    if (maxRepoSizeBytes && totalSize > maxRepoSizeBytes) {
+      if (fs.existsSync(targetDir)) {
+        fs.rmSync(targetDir, { recursive: true, force: true });
+      }
       throw new Error(
-        `Repository size (${totalSizeBytes} bytes) exceeds maximum allowed scan limit (${maxRepoSizeBytes} bytes)`
+        `Repository size exceeds maximum allowed scan limit of ${Math.round(
+          maxRepoSizeBytes / (1024 * 1024)
+        )}MB`
       );
     }
   }

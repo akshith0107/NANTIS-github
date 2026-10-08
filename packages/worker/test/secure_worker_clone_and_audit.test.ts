@@ -161,4 +161,73 @@ describe("Secure Worker Execution, Sandboxed Git Clone, Audit Logging & Source C
     expect(deletedCount).toBeGreaterThan(0);
     expect(fs.existsSync(staleDir)).toBe(false);
   });
+
+  it("should enforce max file count limit and clean up temp folder on failure", async () => {
+    const fixtureDir = path.resolve(process.cwd(), "temp/test_file_count_src");
+    const cloneTargetDir = path.resolve(process.cwd(), "temp/scans/test_file_count_target");
+
+    if (fs.existsSync(fixtureDir)) fs.rmSync(fixtureDir, { recursive: true, force: true });
+    if (fs.existsSync(cloneTargetDir)) fs.rmSync(cloneTargetDir, { recursive: true, force: true });
+
+    fs.mkdirSync(fixtureDir, { recursive: true });
+    child_process.execSync("git init", { cwd: fixtureDir });
+    fs.writeFileSync(path.join(fixtureDir, "file1.ts"), "const a = 1;\n");
+    fs.writeFileSync(path.join(fixtureDir, "file2.ts"), "const b = 2;\n");
+    fs.writeFileSync(path.join(fixtureDir, "file3.ts"), "const c = 3;\n");
+
+    child_process.execSync('git config user.name "Test"', { cwd: fixtureDir });
+    child_process.execSync('git config user.email "test@test.com"', { cwd: fixtureDir });
+    child_process.execSync("git add .", { cwd: fixtureDir });
+    child_process.execSync('git commit -m "Init"', { cwd: fixtureDir });
+
+    // Enforce maxFileCount: 2 (repo has 3 files)
+    await expect(
+      cloneRepositorySandboxed({
+        repoUrl: fixtureDir,
+        targetDir: cloneTargetDir,
+        maxFileCount: 2,
+      })
+    ).rejects.toThrow("exceeds maximum allowed file count limit");
+
+    // Temp folder must be deleted on failure
+    expect(fs.existsSync(cloneTargetDir)).toBe(false);
+
+    try {
+      if (fs.existsSync(fixtureDir)) fs.rmSync(fixtureDir, { recursive: true, force: true });
+    } catch {}
+  });
+
+  it("should enforce max repo size limit and clean up temp folder on failure", async () => {
+    const fixtureDir = path.resolve(process.cwd(), "temp/test_repo_size_src");
+    const cloneTargetDir = path.resolve(process.cwd(), "temp/scans/test_repo_size_target");
+
+    if (fs.existsSync(fixtureDir)) fs.rmSync(fixtureDir, { recursive: true, force: true });
+    if (fs.existsSync(cloneTargetDir)) fs.rmSync(cloneTargetDir, { recursive: true, force: true });
+
+    fs.mkdirSync(fixtureDir, { recursive: true });
+    child_process.execSync("git init", { cwd: fixtureDir });
+    // Write 1KB file
+    fs.writeFileSync(path.join(fixtureDir, "large.txt"), "X".repeat(1024));
+
+    child_process.execSync('git config user.name "Test"', { cwd: fixtureDir });
+    child_process.execSync('git config user.email "test@test.com"', { cwd: fixtureDir });
+    child_process.execSync("git add .", { cwd: fixtureDir });
+    child_process.execSync('git commit -m "Init"', { cwd: fixtureDir });
+
+    // Enforce maxRepoSizeBytes: 500 (file is 1024 bytes)
+    await expect(
+      cloneRepositorySandboxed({
+        repoUrl: fixtureDir,
+        targetDir: cloneTargetDir,
+        maxRepoSizeBytes: 500,
+      })
+    ).rejects.toThrow("exceeds maximum allowed scan limit");
+
+    // Temp folder must be deleted on failure
+    expect(fs.existsSync(cloneTargetDir)).toBe(false);
+
+    try {
+      if (fs.existsSync(fixtureDir)) fs.rmSync(fixtureDir, { recursive: true, force: true });
+    } catch {}
+  });
 });

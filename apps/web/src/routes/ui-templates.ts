@@ -53,269 +53,377 @@ export function getDefaultHeaders(extraHeaders: Record<string, string> = {}): Re
 
 export const BASE_CSS = `
   :root {
-    --bg-main: #090d16;
-    --bg-card: #111827;
-    --bg-card-hover: #1f2937;
-    --border-color: #1f2937;
-    --border-highlight: #374151;
-    --text-main: #f9fafb;
-    --text-muted: #9ca3af;
-    --text-dim: #6b7280;
-    --accent-blue: #3b82f6;
-    --accent-blue-hover: #2563eb;
-    --accent-cyan: #06b6d4;
-    --badge-proven: #8b5cf6;
-    --badge-likely: #f59e0b;
-    --badge-review: #ef4444;
-    --badge-hygiene: #10b981;
-    --btn-label-real: #16a34a;
-    --btn-label-fp: #dc2626;
-    --btn-label-sure: #4b5563;
+    --bg-main: #f8fafc;
+    --bg-surface: #ffffff;
+    --border-color: #e2e8f0;
+    --border-hover: #cbd5e1;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+    --accent-dark: #0f172a;
+    --accent-dark-hover: #1e293b;
+    
+    --color-critical: #dc2626;
+    --color-high: #ea580c;
+    --color-medium: #d97706;
+    --color-low: #2563eb;
+    
+    --tier-proven-bg: #f3e8ff;
+    --tier-proven-text: #7e22ce;
+    --tier-proven-border: #e9d5ff;
+    
+    --tier-likely-bg: #ffedd5;
+    --tier-likely-text: #c2410c;
+    --tier-likely-border: #fed7aa;
+    
+    --tier-review-bg: #fee2e2;
+    --tier-review-text: #b91c1c;
+    --tier-review-border: #fca5a5;
+    
+    --tier-hygiene-bg: #d1fae5;
+    --tier-hygiene-text: #047857;
+    --tier-hygiene-border: #a7f3d0;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background-color: var(--bg-main);
-    color: var(--text-main);
+    color: var(--text-primary);
     line-height: 1.5;
     min-height: 100vh;
     display: flex;
+  }
+
+  /* App Sidebar Layout */
+  .app-sidebar {
+    width: 240px;
+    min-width: 240px;
+    background: #ffffff;
+    border-right: 1px solid var(--border-color);
+    display: flex;
     flex-direction: column;
-  }
-
-  .top-banner {
-    background: linear-gradient(90deg, #d97706, #b45309);
-    color: #ffffff;
-    text-align: center;
-    padding: 6px 16px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .top-banner .badge {
-    background: rgba(0,0,0,0.3);
-    padding: 2px 8px;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-  }
-
-  header {
-    background-color: #0d1322;
-    border-bottom: 1px solid var(--border-color);
-    padding: 14px 24px;
-  }
-
-  .header-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
     justify-content: space-between;
-    align-items: center;
+    padding: 28px 18px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    z-index: 50;
   }
 
-  .logo {
+  .app-logo {
+    display: block;
+    text-decoration: none;
+    margin-bottom: 32px;
+    padding-left: 6px;
+  }
+
+  .app-logo-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    font-family: Inter, sans-serif;
+  }
+
+  .app-logo-tagline {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .nav-item {
     display: flex;
     align-items: center;
     gap: 12px;
-    font-size: 1.25rem;
+    padding: 10px 14px;
+    border-radius: 8px;
+    color: #64748b;
+    text-decoration: none;
+    font-size: 12px;
     font-weight: 700;
-    color: var(--text-main);
-    text-decoration: none;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: all 0.15s ease;
   }
 
-  .logo-icon {
-    width: 28px;
-    height: 28px;
-    background: linear-gradient(135deg, #3b82f6, #06b6d4);
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
+  .nav-item svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    flex-shrink: 0;
+  }
+
+  .nav-item:hover {
+    background: #f8fafc;
+    color: #0f172a;
+  }
+
+  .nav-item.active {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+
+  /* Plan Card at bottom of sidebar */
+  .sidebar-plan-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  }
+
+  .plan-card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    text-transform: uppercase;
+  }
+
+  .plan-card-stat {
+    font-size: 24px;
     font-weight: 800;
-    color: #fff;
+    color: #0f172a;
+    margin-top: 4px;
+    line-height: 1.2;
   }
 
-  .nav-links {
+  .plan-card-subtext {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 12px;
+  }
+
+  .plan-progress-bar {
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .plan-progress-fill {
+    height: 100%;
+    background: #0f172a;
+    width: 20%;
+  }
+
+  .btn-upgrade-disabled {
+    width: 100%;
+    background: #0f172a;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: not-allowed;
+    opacity: 0.6;
+    text-align: center;
+  }
+
+  .sidebar-footer-links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 6px;
+  }
+
+  .sidebar-footer-links a {
+    color: #64748b;
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .sidebar-footer-links a:hover {
+    color: #0f172a;
+  }
+
+  /* Main Wrapper */
+  .main-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* Top Header */
+  .top-header {
+    height: 64px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 32px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    justify-content: space-between;
+    gap: 16px;
   }
 
-  .nav-links a {
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: color 0.15s ease;
-  }
-
-  .nav-links a:hover {
-    color: var(--text-main);
-  }
-
-  .user-badge {
+  .repo-selector {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #111827;
+    background: #ffffff;
     border: 1px solid var(--border-color);
-    padding: 4px 12px;
-    border-radius: 9999px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
   }
 
-  .user-avatar {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #374151;
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 14px;
+    width: 380px;
+    font-size: 13px;
+    color: #64748b;
   }
 
-  main {
-    flex: 1;
-    max-width: 1200px;
+  .search-bar input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 13px;
+    color: #0f172a;
     width: 100%;
+  }
+
+  .search-shortcut {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .user-avatar-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  /* Dev Environment Banner */
+  .top-dev-banner {
+    background: #fffbebfb;
+    border-bottom: 1px solid #fef3c7;
+    color: #b45309;
+    padding: 6px 32px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .content-container {
+    padding: 32px;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 32px 24px;
+    width: 100%;
   }
 
-  .card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-  }
-
+  /* Reusable Buttons */
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 10px 20px;
-    font-size: 0.9rem;
+    gap: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
     font-weight: 600;
     border-radius: 8px;
     border: none;
     cursor: pointer;
     text-decoration: none;
-    transition: background-color 0.15s ease, transform 0.1s ease;
+    transition: all 0.15s ease;
   }
 
-  .btn-primary {
-    background-color: var(--accent-blue);
+  .btn-black {
+    background-color: #0f172a;
     color: #ffffff;
   }
-  .btn-primary:hover {
-    background-color: var(--accent-blue-hover);
+  .btn-black:hover {
+    background-color: #1e293b;
   }
 
-  .btn-success {
-    background-color: #16a34a;
-    color: #ffffff;
+  .btn-white-outline {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
   }
-  .btn-success:hover {
-    background-color: #15803d;
-  }
-
-  .btn-secondary {
-    background-color: #374151;
-    color: #ffffff;
-  }
-  .btn-secondary:hover {
-    background-color: #4b5563;
+  .btn-white-outline:hover {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
   }
 
-  .btn-outline {
-    background: transparent;
-    border: 1px solid var(--border-highlight);
-    color: var(--text-main);
-  }
-  .btn-outline:hover {
-    background: var(--bg-card-hover);
+  .btn-disabled {
+    background-color: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
   }
 
-  input[type="text"], input[type="url"], select {
-    width: 100%;
-    padding: 12px 16px;
-    font-size: 0.95rem;
-    background-color: #0d1322;
+  /* Chip Badges */
+  .chip-tier {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-transform: capitalize;
+  }
+  .chip-proven { background: var(--tier-proven-bg); color: var(--tier-proven-text); border: 1px solid var(--tier-proven-border); }
+  .chip-likely { background: var(--tier-likely-bg); color: var(--tier-likely-text); border: 1px solid var(--tier-likely-border); }
+  .chip-review { background: var(--tier-review-bg); color: var(--tier-review-text); border: 1px solid var(--tier-review-border); }
+  .chip-hygiene { background: var(--tier-hygiene-bg); color: var(--tier-hygiene-text); border: 1px solid var(--tier-hygiene-border); }
+
+  /* Utility Cards */
+  .ui-card {
+    background: #ffffff;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    color: var(--text-main);
-    outline: none;
-    transition: border-color 0.15s ease;
-  }
-
-  input[type="text"]:focus, input[type="url"]:focus, select:focus {
-    border-color: var(--accent-blue);
-  }
-
-  footer {
-    border-top: 1px solid var(--border-color);
+    border-radius: 12px;
     padding: 24px;
-    text-align: center;
-    color: var(--text-dim);
-    font-size: 0.85rem;
-    background-color: #070a12;
-  }
-
-  .footer-notice {
-    max-width: 800px;
-    margin: 0 auto;
-    line-height: 1.6;
-  }
-
-  /* Status Badges */
-  .badge-tier {
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    display: inline-block;
-  }
-  .tier-proven { background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.4); }
-  .tier-likely { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
-  .tier-review { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
-  .tier-hygiene { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
-
-  /* Verification Tag */
-  .verification-badge {
-    background: rgba(245, 158, 11, 0.15);
-    color: #f59e0b;
-    border: 1px solid rgba(245, 158, 11, 0.3);
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .pr-status-badge {
-    background: rgba(59, 130, 246, 0.15);
-    color: #60a5fa;
-    border: 1px solid rgba(59, 130, 246, 0.3);
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
   }
 `;
 
@@ -324,54 +432,133 @@ export function renderPageLayout(options: {
   userLogin?: string;
   csrfToken?: string;
   content: string;
+  activeNav?: "dashboard" | "repositories" | "scans" | "findings" | "fixes" | "pull-requests" | "settings";
+  repoName?: string;
+  userRepos?: { id: string; name: string; full_name: string }[];
+  scansCount?: number;
 }): string {
-  const { title, userLogin, content } = options;
+  const {
+    title,
+    userLogin,
+    content,
+    activeNav = "scans",
+    repoName,
+    userRepos = [],
+    scansCount = 0,
+  } = options;
+
+  const displayRepo = repoName || (userRepos.length > 0 ? userRepos[0].full_name : "No repositories yet");
+  const isNavActive = (name: string) => (activeNav === name ? "active" : "");
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)} - NANTIS AST Code Scan</title>
+  <title>${escapeHtml(title)} - NANTIS AST Review</title>
   <style>
     ${BASE_CSS}
   </style>
 </head>
 <body>
-  <div class="top-banner">
-    <span>DEV MODE — In-Memory Local Development</span>
-    <span class="badge">Local mode</span>
-  </div>
 
-  <header>
-    <div class="header-content">
-      <a href="/" class="logo">
-        <div class="logo-icon">N</div>
-        <span>NANTIS AST Review</span>
+  <!-- Left Sidebar -->
+  <aside class="app-sidebar">
+    <div>
+      <a href="/" class="app-logo">
+        <div class="app-logo-title">NANTIS</div>
+        <div class="app-logo-tagline">AUTOMATED AST REVIEW</div>
       </a>
-      <div class="nav-links">
-        <a href="/">Home</a>
-        <a href="/repos">Repositories</a>
-        <a href="/rules">Rules Catalog</a>
-        <a href="/api/labels/export">Export Labels</a>
-        ${
-          userLogin
-            ? `<div class="user-badge"><div class="user-avatar"></div><span>${escapeHtml(userLogin)}</span></div>`
-            : `<a href="/auth/dev-login" class="btn btn-outline" style="padding:4px 12px;font-size:0.8rem;">Dev Sign-In</a>`
-        }
+
+      <nav class="nav-menu">
+        <a href="/" class="nav-item ${isNavActive("dashboard")}">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </a>
+        <a href="/repos" class="nav-item ${isNavActive("repositories")}">
+          <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          Repositories
+        </a>
+        <a href="/" class="nav-item ${isNavActive("scans")}">
+          <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Scans
+        </a>
+        <a href="/findings" class="nav-item ${isNavActive("findings")}">
+          <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          Findings
+        </a>
+        <a href="/fixes" class="nav-item ${isNavActive("fixes")}">
+          <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          Fixes
+        </a>
+        <a href="/pull-requests" class="nav-item ${isNavActive("pull-requests")}">
+          <svg viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+          Pull Requests
+        </a>
+        <a href="/settings" class="nav-item ${isNavActive("settings")}">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </a>
+      </nav>
+    </div>
+
+    <!-- Bottom Sidebar Plan Card -->
+    <div>
+      <div class="sidebar-plan-card">
+        <div class="plan-card-title">LOCAL MODE</div>
+        <div class="plan-card-stat">${scansCount} / ∞</div>
+        <div class="plan-card-subtext">scans this session</div>
+        <div class="plan-progress-bar">
+          <div class="plan-progress-fill" style="width: ${Math.min(100, Math.max(10, scansCount * 20))}%;"></div>
+        </div>
+        <button type="button" class="btn-upgrade-disabled" disabled title="Coming soon">Upgrade</button>
+      </div>
+
+      <div class="sidebar-footer-links">
+        <a href="/rules">DOCS ↗</a>
+        <a href="/privacy">PRIVACY ↗</a>
+        <a href="/auth/dev-login">LOG OUT</a>
       </div>
     </div>
-  </header>
+  </aside>
 
-  <main>
-    ${content}
-  </main>
+  <!-- Main Wrapper -->
+  <div class="main-wrapper">
+    
+    <!-- Top Header Bar -->
+    <header class="top-header">
+      <div class="repo-selector">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        <span id="header-repo-name">${escapeHtml(displayRepo)}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
 
-  <footer>
-    <div class="footer-notice">
-      <p><strong>Ethical & Scope Notice:</strong> NANTIS AST Scan is a static analysis helper tool. No issues found means no findings matched active static rules, not a guarantee that no bugs exist. Only scan public repositories or repositories you have explicit authorization to test. No external LLM code execution or remote repository mutations take place in local mode.</p>
+      <div class="search-bar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search findings, files, rules..." />
+        <span class="search-shortcut">/</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="user-avatar-badge" title="${escapeHtml(userLogin || "Guest User")}">
+          ${escapeHtml((userLogin || "JD").slice(0, 2).toUpperCase())}
+        </div>
+      </div>
+    </header>
+
+    <!-- Dev Environment Banner -->
+    <div class="top-dev-banner">
+      <span>DEV MODE — In-Memory Local Development (127.0.0.1)</span>
+      <span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 999px; font-size: 11px; text-transform: uppercase;">Local mode</span>
     </div>
-  </footer>
+
+    <!-- Main Page Content -->
+    <main class="content-container">
+      ${content}
+    </main>
+
+  </div>
+
 </body>
 </html>`;
 }

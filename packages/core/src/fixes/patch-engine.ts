@@ -106,7 +106,7 @@ export function generateUnifiedDiff(
 ): string {
   const normPath = filePath.replace(/\\/g, "/");
   if (beforeContent === afterContent) {
-    return `--- ${normPath}\n+++ ${normPath}`;
+    return `--- a/${normPath}\n+++ b/${normPath}`;
   }
 
   const beforeLines = beforeContent.length === 0 ? [] : beforeContent.split(/\r?\n/);
@@ -161,7 +161,7 @@ export function generateUnifiedDiff(
   }
 
   if (editIndices.length === 0) {
-    return `--- ${normPath}\n+++ ${normPath}`;
+    return `--- a/${normPath}\n+++ b/${normPath}`;
   }
 
   const CONTEXT = 3;
@@ -186,36 +186,18 @@ export function generateUnifiedDiff(
   hunkRanges.push({ startOpIdx: currentHunkStart, endOpIdx: currentHunkEnd });
 
   const diffLines: string[] = [
-    `--- ${normPath}`,
-    `+++ ${normPath}`,
+    `--- a/${normPath}`,
+    `+++ b/${normPath}`,
   ];
+
+  const beforeEndsWithNewline = beforeContent.endsWith("\n") || beforeContent.endsWith("\r");
+  const afterEndsWithNewline = afterContent.endsWith("\n") || afterContent.endsWith("\r");
 
   for (const range of hunkRanges) {
     const hunkOps = ops.slice(range.startOpIdx, range.endOpIdx + 1);
 
-    let startBefore = 0;
-    for (const op of hunkOps) {
-      if (op.type === "same" || op.type === "delete") {
-        startBefore = op.origIdx;
-        break;
-      }
-    }
-    if (startBefore === 0) {
-      const prevOrig = ops.slice(0, range.startOpIdx).reverse().find((o) => o.type !== "add");
-      startBefore = prevOrig ? prevOrig.origIdx + 1 : 1;
-    }
-
-    let startAfter = 0;
-    for (const op of hunkOps) {
-      if (op.type === "same" || op.type === "add") {
-        startAfter = op.newIdx;
-        break;
-      }
-    }
-    if (startAfter === 0) {
-      const prevNew = ops.slice(0, range.startOpIdx).reverse().find((o) => o.type !== "delete");
-      startAfter = prevNew ? prevNew.newIdx + 1 : 1;
-    }
+    const startBefore = hunkOps[0].origIdx;
+    const startAfter = hunkOps[0].newIdx;
 
     const countBefore = hunkOps.filter((o) => o.type === "same" || o.type === "delete").length;
     const countAfter = hunkOps.filter((o) => o.type === "same" || o.type === "add").length;
@@ -223,17 +205,29 @@ export function generateUnifiedDiff(
     diffLines.push(`@@ -${startBefore},${countBefore} +${startAfter},${countAfter} @@`);
 
     for (const op of hunkOps) {
+      const isLastBefore = op.origIdx === m;
+      const isLastAfter = op.newIdx === n;
+
       if (op.type === "same") {
         diffLines.push(` ${op.line}`);
+        if (isLastBefore && !beforeEndsWithNewline && isLastAfter && !afterEndsWithNewline) {
+          diffLines.push("\\ No newline at end of file");
+        }
       } else if (op.type === "delete") {
         diffLines.push(`-${op.line}`);
+        if (isLastBefore && !beforeEndsWithNewline) {
+          diffLines.push("\\ No newline at end of file");
+        }
       } else if (op.type === "add") {
         diffLines.push(`+${op.line}`);
+        if (isLastAfter && !afterEndsWithNewline) {
+          diffLines.push("\\ No newline at end of file");
+        }
       }
     }
   }
 
-  return diffLines.join("\n");
+  return diffLines.join("\n") + "\n";
 }
 
 /**

@@ -193,10 +193,10 @@ export async function renderFixReviewPage(
 
         <form method="POST" action="/findings/${escapeHtml(finding.db_id || finding.id)}/fix" style="margin-top: 24px; display: flex; gap: 16px; align-items: center;">
           <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}" />
-          <button type="submit" class="btn btn-success" style="padding: 12px 24px;">
+          <button type="submit" class="btn btn-black" style="padding: 10px 24px;">
             Approve & Apply Fix
           </button>
-          <a href="/scans/${escapeHtml(finding.scan_id)}" class="btn btn-outline">
+          <a href="/scans/${escapeHtml(finding.scan_id)}" class="btn btn-white-outline">
             Cancel
           </a>
         </form>
@@ -204,14 +204,18 @@ export async function renderFixReviewPage(
     </div>
   `;
 
+  const userRepos = await db.getUserAccessibleRepositories(session.userId);
+
   return {
     status: 200,
     headers: getDefaultHeaders(),
     body: renderPageLayout({
       title: `Fix Review - ${finding.ruleId}`,
       userLogin: session.githubLogin,
+      userRepos,
       csrfToken,
       content,
+      activeNav: "fixes",
     }),
   };
 }

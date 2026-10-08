@@ -123,6 +123,49 @@ export async function handleCreateScan(
       };
     }
 
+    // --- DUAL-LOCK SCAN-TIME VERIFICATION ---
+    // Lock 1: Unexpired User Access Snapshot Check (Comparing by numeric github_repo_id)
+    if (userId) {
+      const snapshotRow = await db.checkUserRepoSnapshotValid(userId, repository.github_repo_id);
+      if (!snapshotRow) {
+        return {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            error: "User access snapshot expired or missing. Please click Refresh on Repositories page to update access.",
+          }),
+        };
+      }
+    }
+
+    // Lock 2: Live Installation Repository List Check on GitHub (Comparing by numeric github_repo_id)
+    try {
+      const { verifyInstallationLiveRepoList } = await import("../lib/github-app.js");
+      const liveRepoIds = await verifyInstallationLiveRepoList(
+        inst.installation_id,
+        env.GITHUB_APP_ID,
+        env.GITHUB_APP_PRIVATE_KEY
+      );
+      if (liveRepoIds !== null && !liveRepoIds.includes(repository.github_repo_id)) {
+        return {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            error: "Repository access removed or suspended on GitHub. Scan denied.",
+          }),
+        };
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("rate limit")) {
+        return {
+          status: 429,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ error: msg }),
+        };
+      }
+    }
+
     await scanJobQueue.enqueueJob(
       {
         scanId: scan.id,

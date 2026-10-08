@@ -31,6 +31,7 @@ export interface GitHubWebhookPayload {
     author?: { name: string; email: string };
   };
   repositories?: { id: number; name: string; full_name: string; private: boolean }[];
+  repositories_removed?: { id: number; name?: string; full_name?: string; private?: boolean }[];
 }
 
 const pushDeduplicationMap = new Map<
@@ -125,16 +126,24 @@ export async function handleGitHubWebhook(
         user_agent: userAgent,
         details: { account_name: account.login, target_type: account.type },
       });
-    } else if (action === "deleted") {
-      await db.deleteInstallation(inst.id);
+    } else if (action === "deleted" || action === "suspend") {
+      await db.deleteSnapshotsForInstallation(inst.id);
 
       await db.createAuditLog({
-        action: "installation.deleted",
+        action: `installation.${action}`,
         target_resource: `installation:${inst.id}`,
         ip_address: ip,
         user_agent: userAgent,
         details: { installation_id: inst.id },
       });
+    }
+  }
+
+  // 3b. Handle Installation Repositories Events
+  if (eventType === "installation_repositories" && payload.repositories_removed) {
+    const removedList = payload.repositories_removed as { id: number; full_name?: string }[];
+    for (const r of removedList) {
+      await db.deleteSnapshotsForRepo(r.id);
     }
   }
 

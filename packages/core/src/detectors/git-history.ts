@@ -1,5 +1,7 @@
 import { spawn } from "child_process";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import readline from "readline";
 import { maskSecrets } from "../masking.js";
 import { Finding, Severity } from "../types.js";
@@ -71,6 +73,11 @@ function generateFingerprint(
 }
 
 export function scanGitHistory(repoDir: string): Promise<Finding[]> {
+  const dotGitPath = path.join(repoDir, ".git");
+  if (!fs.existsSync(dotGitPath)) {
+    return Promise.resolve([]);
+  }
+
   return new Promise((resolve) => {
     // Spawn git log with explicit args array (prevents shell command injection)
     const gitProcess = spawn("git", ["log", "-p", "-U0", "--all", "--date=iso"], {

@@ -85,7 +85,7 @@ describe("Plain Accessible Repositories Page (apps/web)", () => {
     expect(resA.body).toContain("Signed in as <strong>alice</strong>");
     expect(resA.body).toContain("alice/alice-app");
     expect(resA.body).toContain(
-      '<button type="button" data-repo-id="' + repoA.id + '">Scan</button>'
+      '<button type="button" data-repo-id="' + repoA.id + '" class="btn btn-black" style="padding: 6px 14px; font-size: 12px;">Scan</button>'
     );
 
     // Server-side isolation check: Alice's page MUST NOT contain Bob's repo

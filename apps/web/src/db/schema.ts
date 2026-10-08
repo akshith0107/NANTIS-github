@@ -81,3 +81,24 @@ export interface FindingLabelRow {
   label: "real_issue" | "false_positive" | "not_sure";
   created_at: string;
 }
+
+export interface UserRepoSnapshotRow {
+  id: string;
+  user_id: string;
+  github_repo_id: number;
+  repo_name: string;
+  full_name: string;
+  installation_id: number;
+  private: boolean;
+  html_url?: string;
+  fetched_at: string;
+  expires_at: string;
+}
+
+export interface UserInstallationRow {
+  id: string;
+  user_id: string;
+  installation_id: number;
+  html_url?: string;
+  created_at: string;
+}

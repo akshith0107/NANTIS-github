@@ -46,20 +46,22 @@ export async function renderHomePage(
 
   const recentScansHtml =
     recentScansList.length === 0
-      ? `<p style="color: var(--text-dim); font-size: 0.9rem;">No recent scans. Paste a repository URL above to initiate your first AST security review.</p>`
-      : `<div style="display: flex; flex-direction: column; gap: 8px;">
+      ? `<div style="text-align: center; padding: 32px 16px; background: #f8fafc; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-muted); font-size: 13px;">
+          No recent scans yet. Paste a public GitHub repository URL above to launch your first static security scan.
+        </div>`
+      : `<div style="display: flex; flex-direction: column; gap: 10px;">
           ${recentScansList
             .slice(-5)
             .reverse()
             .map(
               (s) => `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #0d1322; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: #ffffff; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
               <div>
-                <strong>${escapeHtml(s.repoName)}</strong>
-                <span style="font-size: 0.8rem; color: var(--text-dim); margin-left: 8px;">Scan ID: ${escapeHtml(s.scanId)}</span>
+                <strong style="color: #0f172a; font-size: 14px; font-weight: 700;">${escapeHtml(s.repoName)}</strong>
+                <span style="font-size: 12px; color: var(--text-muted); margin-left: 10px; font-family: monospace;">ID: ${escapeHtml(s.scanId.slice(0, 8))}</span>
               </div>
               <div>
-                <a href="/scans/${escapeHtml(s.scanId)}" class="btn btn-outline" style="padding: 4px 12px; font-size: 0.8rem;">View Findings</a>
+                <a href="/scans/${escapeHtml(s.scanId)}" class="btn btn-white-outline" style="padding: 6px 14px; font-size: 12px;">View Findings →</a>
               </div>
             </div>
           `
@@ -68,71 +70,92 @@ export async function renderHomePage(
         </div>`;
 
   const content = `
-    <div style="max-width: 840px; margin: 0 auto;">
-      <div style="text-align: center; margin-bottom: 40px;">
-        <h1 style="font-size: 2.2rem; font-weight: 800; margin-bottom: 12px; background: linear-gradient(135deg, #f8fafc, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+    <div style="max-width: 840px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+      <div style="text-align: center; margin-bottom: 8px;">
+        <h1 style="font-size: 32px; font-weight: 800; color: #0f172a; letter-spacing: -0.03em; margin-bottom: 8px;">
           AST Vulnerability & Static Security Review
         </h1>
-        <p style="color: var(--text-muted); font-size: 1.05rem; max-width: 650px; margin: 0 auto;">
+        <p style="color: #64748b; font-size: 15px; max-width: 650px; margin: 0 auto; line-height: 1.5;">
           High-fidelity AST security analysis, deterministic fix engine, and interactive finding classification.
+        </p>
+        <p style="color: #475569; font-size: 13px; font-weight: 500; margin-top: 12px; background: #f1f5f9; padding: 8px 16px; border-radius: 999px; display: inline-block;">
+          NANTIS gets read-only access to only the repositories you choose, and you can change this anytime on GitHub.
         </p>
       </div>
 
-      <div class="card" style="border: 1px solid rgba(59, 130, 246, 0.3); background: radial-gradient(circle at top right, #151d30, #111827);">
-        <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-          <span style="color: var(--accent-blue);">🔍</span> Scan Public GitHub Repository
+      <div class="ui-card" style="display: flex; justify-content: space-between; align-items: center; background: #ffffff;">
+        <div>
+          <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">Connect Your GitHub Account</h3>
+          <p style="color: #64748b; font-size: 13px; margin: 0;">Sign in to choose repositories (public & private) for static AST analysis.</p>
+        </div>
+        <div>
+          <a href="/auth/login" class="btn btn-black" style="padding: 10px 20px; font-size: 13px; font-weight: 600;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            Connect GitHub
+          </a>
+        </div>
+      </div>
+
+      <div class="ui-card">
+        <h2 style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+          <span>🔍</span> Scan Public GitHub Repository
         </h2>
         
         <form action="/api/dev/scan-public-repo" method="POST" style="display: flex; flex-direction: column; gap: 16px;">
           <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}" />
           
           <div>
-            <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">
-              Paste a public GitHub repository link
+            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">
+              Repository URL
             </label>
             <input 
               type="url" 
               name="repoUrl" 
-              placeholder="https://github.com/owner/repository" 
+              placeholder="https://github.com/owner/repo" 
               required 
-              style="font-family: monospace; font-size: 1rem; padding: 14px 18px;"
+              style="width: 100%; font-family: monospace; font-size: 14px; padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 8px; background: #ffffff; color: #0f172a; outline: none;"
             />
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-            <div style="font-size: 0.8rem; color: var(--text-dim);">
-              Strict server-side validation: <code style="color: #60a5fa;">https://github.com/</code> only
+            <div style="font-size: 13px; color: #64748b; font-weight: 500;">
+              Public GitHub repositories only.
             </div>
-            <button type="submit" class="btn btn-primary" style="padding: 12px 28px; font-size: 0.95rem;">
+            <button type="submit" class="btn btn-black" style="padding: 10px 24px; font-size: 13px; font-weight: 600;">
               Scan Repository
             </button>
           </div>
         </form>
       </div>
 
-      <div class="card" style="background: rgba(17, 24, 39, 0.6);">
-        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: var(--text-main);">
-          ⚡ Quick Actions & Local Scanning
+      <div class="ui-card">
+        <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 16px;">
+          ⚡ Dev Mode: Local Folder Scanning
         </h3>
         
-        <form action="/api/dev/scan" method="POST" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px;">
+        <form action="/api/dev/scan" method="POST" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
           <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}" />
-          <input 
-            type="text" 
-            name="folder" 
-            value="${escapeHtml(process.cwd())}" 
-            placeholder="Local folder path"
-            style="flex: 1; font-family: monospace; font-size: 0.85rem;"
-          />
-          <button type="submit" class="btn btn-secondary" style="white-space: nowrap;">
-            Scan Local Directory
-          </button>
+          <label style="font-size: 13px; font-weight: 600; color: #475569;">
+            Local Folder Path (Development Mode)
+          </label>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <input 
+              type="text" 
+              name="folder" 
+              value="${escapeHtml(process.cwd())}" 
+              placeholder="E.g. C:\\path\\to\\project"
+              style="flex: 1; font-family: monospace; font-size: 13px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: #ffffff; color: #0f172a; outline: none;"
+            />
+            <button type="submit" class="btn btn-white-outline" style="white-space: nowrap;">
+              Scan Local Directory
+            </button>
+          </div>
         </form>
 
-        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;" />
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 24px 0;" />
 
-        <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 12px; color: var(--text-muted);">
-          Recent Local Scans
+        <h4 style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 14px;">
+          Recent Scans
         </h4>
         ${recentScansHtml}
       </div>
@@ -143,6 +166,9 @@ export async function renderHomePage(
     title: "Public Repo Scan Console",
     userLogin,
     csrfToken,
+    userRepos: repos,
+    scansCount: recentScansList.length,
+    activeNav: "scans",
     content,
   });
 

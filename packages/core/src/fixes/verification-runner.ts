@@ -1,4 +1,3 @@
-import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { runScan } from "../cli/scan.js";
@@ -19,7 +18,6 @@ export async function runSandboxVerification(
 ): Promise<VerificationReport> {
   const checksRun: string[] = [];
   let isWeak = false;
-  let testNote = "";
 
   // 1. Rescan verification (deterministic)
   checksRun.push("rescan");
@@ -58,23 +56,31 @@ export async function runSandboxVerification(
     };
   }
 
-  // 2. TypeScript typecheck (Safe static analysis: tsc does NOT execute package scripts)
+  // 2. TypeScript typecheck (Opt-in ONLY via isolated container runner; host execution prohibited)
   if (config.runTypecheck !== false && fs.existsSync(path.join(tempCopyDir, "tsconfig.json"))) {
-    checksRun.push("tsc");
-    try {
-      execSync("npx tsc --noEmit", {
-        cwd: tempCopyDir,
-        stdio: ["ignore", "pipe", "pipe"],
-        encoding: "utf-8",
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        passed: false,
-        checksRun,
-        summaryText: "Verification FAILED: tsc typecheck errors detected",
-        dropReason: `TypeScript compiler failed: ${msg.slice(0, 100)}`,
-      };
+    if (config.containerRunner) {
+      checksRun.push("tsc");
+      try {
+        const result = await config.containerRunner.runCommand(tempCopyDir, "npx tsc --noEmit");
+        if (!result.success || result.exitCode !== 0) {
+          return {
+            passed: false,
+            checksRun,
+            summaryText: "Verification FAILED: tsc typecheck errors detected in container sandbox",
+            dropReason: `TypeScript compiler failed inside isolated container runner: ${result.output.slice(0, 100)}`,
+          };
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          passed: false,
+          checksRun,
+          summaryText: "Verification FAILED: Container runner error during tsc typecheck",
+          dropReason: `Container runner failed to execute tsc: ${msg.slice(0, 100)}`,
+        };
+      }
+    } else {
+      isWeak = true;
     }
   }
 
@@ -102,7 +108,6 @@ export async function runSandboxVerification(
       }
     } else {
       isWeak = true;
-      testNote += "; tests not run: container runner unconfigured";
     }
   }
 
@@ -130,11 +135,12 @@ export async function runSandboxVerification(
       }
     } else {
       isWeak = true;
-      testNote += "; build not run: container runner unconfigured";
     }
   }
 
-  const summaryText = `verified: ${checksRun.join(" + ")}${testNote}${isWeak ? " (WEAK verification)" : ""}`;
+  const summaryText = isWeak
+    ? "PARTIALLY VERIFIED (typecheck not run)"
+    : `verified: ${checksRun.join(" + ")}`;
 
   return {
     passed: true,
