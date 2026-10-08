@@ -541,3 +541,125 @@ export async function runIdorBenchmark(): Promise<BenchmarkMetrics> {
     overallCoverage,
   };
 }
+
+export interface BenchmarkComparisonResult {
+  deterministic: BenchmarkMetrics;
+  deterministicPlusLlm: BenchmarkMetrics & { totalCostUsd: number; totalLatencyMs: number };
+}
+
+/**
+ * Runs comparative benchmark evaluation comparing Deterministic-only vs Deterministic + LLM Security Hunter.
+ */
+export async function runComparativeBenchmark(): Promise<BenchmarkComparisonResult> {
+  const { LlmSecurityHunter } = await import("../ai/investigator.js");
+  const { MockLlmProvider } = await import("../ai/provider.js");
+
+  const deterministicMetrics = await runIdorBenchmark();
+  const suite = buildIdorBenchmarkSuite();
+
+  let truePositives = 0;
+  let falsePositives = 0;
+  let trueNegatives = 0;
+  let falseNegatives = 0;
+  let abstentions = 0;
+  let completedCount = 0;
+  let totalCostUsd = 0;
+  let totalLatencyMs = 0;
+
+  const hunter = new LlmSecurityHunter({ enabled: true }, new MockLlmProvider("default"));
+
+  for (const tc of suite) {
+    try {
+      const detFindings = await detectDeterministicIdor(tc.filesMap);
+      const llmResult = await hunter.investigate(tc.filesMap);
+      completedCount++;
+
+      totalCostUsd += llmResult.metadata.costUsd;
+      totalLatencyMs += llmResult.metadata.latencyMs;
+
+      // Combine findings: deterministic findings cannot be dismissed!
+      const combinedFindings = [...detFindings, ...llmResult.verifiedFindings];
+
+      const hasIdorFinding = combinedFindings.some(
+        (f) => (f.ruleId === "idor.owner-column.v1" || f.origin === "llm") && f.confidenceTier !== "needs-review"
+      );
+      const hasNeedsReviewFinding = combinedFindings.some(
+        (f) => f.confidenceTier === "needs-review"
+      );
+
+      if (tc.expectedVerdict === "vulnerable") {
+        if (hasIdorFinding) {
+          truePositives++;
+        } else {
+          falseNegatives++;
+        }
+      } else if (tc.expectedVerdict === "safe") {
+        if (hasIdorFinding) {
+          falsePositives++;
+        } else {
+          trueNegatives++;
+        }
+      } else if (tc.expectedVerdict === "abstain") {
+        if (hasNeedsReviewFinding || combinedFindings.length === 0) {
+          abstentions++;
+        } else if (hasIdorFinding) {
+          falsePositives++;
+        }
+      }
+    } catch {
+      // Failed to run case
+    }
+  }
+
+  const vulnerableCases = suite.filter((c) => c.expectedVerdict === "vulnerable").length;
+  const safeCases = suite.filter((c) => c.expectedVerdict === "safe").length;
+  const abstainCases = suite.filter((c) => c.expectedVerdict === "abstain").length;
+
+  const precision =
+    truePositives + falsePositives > 0
+      ? (truePositives / (truePositives + falsePositives)) * 100
+      : 100;
+
+  const recall =
+    truePositives + falseNegatives > 0
+      ? (truePositives / (truePositives + falseNegatives)) * 100
+      : 100;
+
+  const falsePositiveRate =
+    falsePositives + trueNegatives > 0
+      ? (falsePositives / (falsePositives + trueNegatives)) * 100
+      : 0;
+
+  const falseNegativeRate =
+    falseNegatives + truePositives > 0
+      ? (falseNegatives / (truePositives + falseNegatives)) * 100
+      : 0;
+
+  const abstentionRate = (abstentions / suite.length) * 100;
+  const overallCoverage = (completedCount / suite.length) * 100;
+
+  const llmMetrics = {
+    totalCases: suite.length,
+    vulnerableCases,
+    safeCases,
+    abstainCases,
+    truePositives,
+    falsePositives,
+    trueNegatives,
+    falseNegatives,
+    abstentions,
+    precision,
+    recall,
+    falsePositiveRate,
+    falseNegativeRate,
+    abstentionRate,
+    overallCoverage,
+    totalCostUsd,
+    totalLatencyMs,
+  };
+
+  return {
+    deterministic: deterministicMetrics,
+    deterministicPlusLlm: llmMetrics,
+  };
+}

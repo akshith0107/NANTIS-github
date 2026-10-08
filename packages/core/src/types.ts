@@ -60,6 +60,7 @@ export interface Finding {
   fingerprint: string;
   introducedIn?: GitCommitMeta;
   status?: FindingStatus;
+  origin?: "engine" | "llm";
 }
 
 export interface RuleFixture {
