@@ -47,16 +47,23 @@ export class PostgresDatabaseClient {
         );
       `);
 
-      const migrationPath = path.resolve(__dirname, "migrations/001_initial_schema.sql");
-      if (fs.existsSync(migrationPath)) {
-        const res = await client.query("SELECT version FROM schema_migrations WHERE version = 1");
-        if (res.rowCount === 0) {
-          const sql = fs.readFileSync(migrationPath, "utf-8");
-          await client.query(sql);
-          await client.query(
-            "INSERT INTO schema_migrations (version, name) VALUES ($1, $2)",
-            [1, "001_initial_schema"]
-          );
+      const migrations = [
+        { version: 1, name: "001_initial_schema", file: "migrations/001_initial_schema.sql" },
+        { version: 2, name: "002_add_pr_publication_columns", file: "migrations/002_add_pr_publication_columns.sql" },
+      ];
+
+      for (const m of migrations) {
+        const migrationPath = path.resolve(__dirname, m.file);
+        if (fs.existsSync(migrationPath)) {
+          const res = await client.query("SELECT version FROM schema_migrations WHERE version = $1", [m.version]);
+          if (res.rowCount === 0) {
+            const sql = fs.readFileSync(migrationPath, "utf-8");
+            await client.query(sql);
+            await client.query(
+              "INSERT INTO schema_migrations (version, name) VALUES ($1, $2)",
+              [m.version, m.name]
+            );
+          }
         }
       }
       await client.query("COMMIT");
