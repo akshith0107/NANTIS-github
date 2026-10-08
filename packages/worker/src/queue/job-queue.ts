@@ -1,5 +1,6 @@
 import { Finding, ScanDiagnostic } from "@nantis/core";
 import { DEFAULT_JOB_OPTIONS, processScanJob } from "../processor/scan-processor.js";
+import { PgBossScanJobQueue } from "./pgboss-queue.js";
 import {
   AuditLogPayload,
   DatabaseStateAdapter,
@@ -62,6 +63,7 @@ export class InMemoryDbAdapter implements DatabaseStateAdapter {
 export class ScanJobQueue {
   private options: ScanJobOptions;
   private dbAdapter: DatabaseStateAdapter;
+  private pgBossQueue?: PgBossScanJobQueue;
   private jobStates = new Map<string, ScanJobState>();
   private activeConcurrency = 0;
   private queue: {
@@ -72,10 +74,16 @@ export class ScanJobQueue {
 
   constructor(
     dbAdapter: DatabaseStateAdapter = new InMemoryDbAdapter(),
-    options: Partial<ScanJobOptions> = {}
+    options: Partial<ScanJobOptions> = {},
+    dbConfig?: string | object
   ) {
     this.dbAdapter = dbAdapter;
     this.options = { ...DEFAULT_JOB_OPTIONS, ...options };
+
+    const connectionString = dbConfig || process.env.DATABASE_URL;
+    if (connectionString) {
+      this.pgBossQueue = new PgBossScanJobQueue(this.dbAdapter, connectionString, this.options);
+    }
   }
 
   async enqueueJob(
@@ -83,6 +91,10 @@ export class ScanJobQueue {
     optionsOverride: Partial<ScanJobOptions> = {},
     customFetcher?: (dir: string) => Promise<void>
   ): Promise<ScanJobState> {
+    if (this.pgBossQueue) {
+      return this.pgBossQueue.enqueueJob(payload, optionsOverride, customFetcher);
+    }
+
     const now = new Date().toISOString();
     const initialState: ScanJobState = {
       scanId: payload.scanId,
@@ -151,14 +163,24 @@ export class ScanJobQueue {
   }
 
   async getJobStatus(scanId: string): Promise<{ status: JobStatus; errorMessage?: string } | null> {
+    if (this.pgBossQueue) {
+      return this.pgBossQueue.getJobStatus(scanId);
+    }
     return this.dbAdapter.getScanStatus(scanId);
   }
 
   getJobState(scanId: string): ScanJobState | undefined {
+    if (this.pgBossQueue) {
+      return this.pgBossQueue.getJobState(scanId);
+    }
     return this.jobStates.get(scanId);
   }
 
   async waitForJobCompletion(scanId: string, timeoutMs = 5000): Promise<ScanJobState> {
+    if (this.pgBossQueue) {
+      return this.pgBossQueue.waitForJobCompletion(scanId, timeoutMs);
+    }
+
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       const state = this.getJobState(scanId);
@@ -178,10 +200,22 @@ export class ScanJobQueue {
   }
 
   getActiveConcurrencyCount(): number {
+    if (this.pgBossQueue) {
+      return this.pgBossQueue.getActiveConcurrencyCount();
+    }
     return this.activeConcurrency;
   }
 
   getPendingQueueLength(): number {
+    if (this.pgBossQueue) {
+      return this.pgBossQueue.getPendingQueueLength();
+    }
     return this.queue.length;
+  }
+
+  async stop(): Promise<void> {
+    if (this.pgBossQueue) {
+      await this.pgBossQueue.stop();
+    }
   }
 }

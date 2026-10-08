@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@nantis/core": "workspace:*",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "pg-boss": "^12.37.0"
   },
   "scripts": {
     "test": "vitest run",
