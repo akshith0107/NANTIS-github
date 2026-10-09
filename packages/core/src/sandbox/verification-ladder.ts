@@ -127,16 +127,20 @@ export class VerificationLadderRunner {
     if (fs.existsSync(path.join(patchedWorkspaceDir, "tsconfig.json"))) {
       const tscRes = await this.sandbox.executeCommand(patchedWorkspaceDir, "npx tsc --noEmit");
       if (!tscRes.success) {
-        l2Status = "failed";
-        l2Message = `TypeScript compiler failed inside isolated sandbox: ${tscRes.output.slice(0, 100)}`;
+        l2Status = tscRes.unavailable ? "unavailable" : "failed";
+        l2Message = tscRes.unavailable
+          ? `Container runtime unavailable: ${tscRes.output}`
+          : `TypeScript compiler failed inside isolated sandbox: ${tscRes.output.slice(0, 100)}`;
       }
     }
 
     if (l2Status === "passed" && config.runBuild) {
       const buildRes = await this.sandbox.executeCommand(patchedWorkspaceDir, "npm run build");
       if (!buildRes.success) {
-        l2Status = "failed";
-        l2Message = `Production build failed inside isolated sandbox: ${buildRes.output.slice(0, 100)}`;
+        l2Status = buildRes.unavailable ? "unavailable" : "failed";
+        l2Message = buildRes.unavailable
+          ? `Container runtime unavailable: ${buildRes.output}`
+          : `Production build failed inside isolated sandbox: ${buildRes.output.slice(0, 100)}`;
       }
     }
 
@@ -157,8 +161,10 @@ export class VerificationLadderRunner {
         l3Status = "passed";
         l3Message = "Repository unit test suite passed in container sandbox";
       } else {
-        l3Status = "failed";
-        l3Message = `Repository unit test suite failed in container sandbox: ${testRes.output.slice(0, 100)}`;
+        l3Status = testRes.unavailable ? "unavailable" : "failed";
+        l3Message = testRes.unavailable
+          ? `Container runtime unavailable: ${testRes.output}`
+          : `Repository unit test suite failed in container sandbox: ${testRes.output.slice(0, 100)}`;
       }
     }
 
@@ -194,12 +200,16 @@ export class VerificationLadderRunner {
     // Calculate Overall Result
     const overallResult: VerificationLadderResult["overallResult"] =
       l2Status === "failed" || l3Status === "failed"
+        ? "failed"
+        : l2Status === "unavailable" || l3Status === "unavailable"
         ? "partial"
         : "passed";
 
     const summaryMessage =
       overallResult === "passed"
         ? "Automated remediation verified under L0-L4 checks"
+        : overallResult === "failed"
+        ? `Automated remediation failed verification checks (L2: ${l2Status}, L3: ${l3Status})`
         : `Automated remediation partially verified (L0/L1 passed, L2/L3 check status: ${l2Status}/${l3Status})`;
 
     return {

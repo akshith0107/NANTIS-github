@@ -32,6 +32,8 @@ export interface SandboxExecutionConfig {
   timeoutMs?: number;
   maxOutputBytes?: number;
   networkPhase?: "none" | "install_only" | "full";
+  image?: string;
+  runtimeEngine?: "docker" | "podman" | "auto" | "mock" | "unavailable";
 }
 
 export const DEFAULT_SANDBOX_CONFIG: SandboxExecutionConfig = {
@@ -41,6 +43,8 @@ export const DEFAULT_SANDBOX_CONFIG: SandboxExecutionConfig = {
   timeoutMs: 10000,
   maxOutputBytes: 50000,
   networkPhase: "none",
+  image: "node:20-alpine",
+  runtimeEngine: "auto",
 };
 
 export interface SandboxExecutionResult {
@@ -51,4 +55,5 @@ export interface SandboxExecutionResult {
   timedOut: boolean;
   memoryExceeded: boolean;
   sanitized: boolean;
+  unavailable?: boolean;
 }
