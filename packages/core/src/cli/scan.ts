@@ -26,6 +26,7 @@ export async function runScan(
     baselinePath?: string;
     saveBaselinePath?: string;
     showUnchanged?: boolean;
+    enableLlmHunter?: boolean;
   } = {}
 ): Promise<{
   findings: Finding[];
@@ -53,6 +54,7 @@ export async function runScan(
     const { findings: rawFindings, diagnostics } = await runAllDetectors(filesMap, {
       targetFolder: normalizedPath,
       offlineMode: true,
+      enableLlmHunter: options.enableLlmHunter,
     });
 
     if (!options.json && diagnostics.length > 0) {

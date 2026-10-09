@@ -6,6 +6,7 @@ import {
   applyStructuredEdits,
   generateUnifiedDiff,
 } from "../src/fixes/patch-engine.js";
+import { fixIdorOwnerColumn } from "../src/fixes/rules/idor-owner-column.js";
 import { StructuredEdit } from "../src/fixes/types.js";
 
 describe("Patch Engine & Structured Edits", () => {
@@ -187,6 +188,25 @@ describe("Patch Engine & Structured Edits", () => {
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
+  });
+
+  it("should generate automated AST fix for idor.owner-column.v1", () => {
+    const filesMap = new Map<string, string>([
+      [
+        "app/api/orders/route.ts",
+        `
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession();
+  const { data } = await supabase.from("orders").select("*").eq("id", params.id);
+  return Response.json(data);
+}
+        `.trim(),
+      ],
+    ]);
+
+    const res = fixIdorOwnerColumn(filesMap, "app/api/orders/route.ts");
+    expect(res.kind).toBe("automated");
+    expect(res.edits[0].replacementContent).toContain('.eq("id", params.id).eq("user_id", session.user.id)');
   });
 });
 

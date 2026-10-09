@@ -10,4 +10,5 @@ export * from "./proof/handler-harness.js";
 export * from "./rules/dependency-bump.js";
 export * from "./rules/enable-rls.js";
 export * from "./rules/stripe-webhook-verification.js";
+export * from "./rules/idor-owner-column.js";
 export * from "./pr-publisher.js";

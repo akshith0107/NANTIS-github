@@ -42,9 +42,13 @@ export function buildSecurityHunterPrompt(context: PreparedLlmContext): string {
   const fileBlocks: string[] = [];
 
   for (const [filePath, content] of context.files.entries()) {
+    const sanitizedContent = content
+      .replace(/<\/repository_source_code>/gi, "&lt;/repository_source_code&gt;")
+      .replace(/<\/file>/gi, "&lt;/file&gt;");
+
     fileBlocks.push(`
 <file path="${filePath}">
-${content}
+${sanitizedContent}
 </file>
     `.trim());
   }

@@ -10,6 +10,7 @@ import { evaluateProof } from "./proof/proof-engine.js";
 import { fixDependencyBump } from "./rules/dependency-bump.js";
 import { fixEnableRLS } from "./rules/enable-rls.js";
 import { fixStripeWebhookVerification } from "./rules/stripe-webhook-verification.js";
+import { fixIdorOwnerColumn } from "./rules/idor-owner-column.js";
 
 /**
  * Validates that a patch does NOT delete code or insert rule suppression comments.
@@ -283,6 +284,9 @@ export function generateFixForRule(
 
     case "stripe-webhook-no-signature":
       return fixStripeWebhookVerification(filesMap, finding.file);
+
+    case "idor.owner-column.v1":
+      return fixIdorOwnerColumn(filesMap, finding.file);
 
     default:
       return {

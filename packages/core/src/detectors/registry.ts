@@ -25,6 +25,7 @@ import { DetectorRunResult, Finding, ScanDiagnostic } from "../types.js";
 export interface DetectorContext {
   targetFolder?: string;
   offlineMode?: boolean;
+  enableLlmHunter?: boolean;
 }
 
 export interface DetectorDefinition {
@@ -191,6 +192,38 @@ export async function runAllDetectors(
         detectorId: detector.id,
         detectorName: detector.name,
         message: `Detector '${detector.name}' failed during analysis: ${sanitizedMsg}`,
+        fatal: false,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Optional Production Stage: LLM Security Hunter
+  const llmEnabled = context.enableLlmHunter ?? (process.env.NANTIS_LLM_HUNTER === "true");
+  if (llmEnabled) {
+    try {
+      const { LlmSecurityHunter } = await import("../ai/investigator.js");
+      const hunter = new LlmSecurityHunter({ enabled: true });
+      const llmResult = await hunter.investigate(filesMap);
+
+      allFindings.push(...llmResult.verifiedFindings);
+      for (const diagMsg of llmResult.diagnostics) {
+        diagnostics.push({
+          kind: "detector_error",
+          detectorId: "LlmSecurityHunter",
+          detectorName: "LLM Security Hunter",
+          message: diagMsg,
+          fatal: false,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (err: unknown) {
+      const sanitizedMsg = sanitizeDiagnosticMessage(err);
+      diagnostics.push({
+        kind: "detector_error",
+        detectorId: "LlmSecurityHunter",
+        detectorName: "LLM Security Hunter",
+        message: `LLM Security Hunter failed during production analysis: ${sanitizedMsg}`,
         fatal: false,
         timestamp: new Date().toISOString(),
       });

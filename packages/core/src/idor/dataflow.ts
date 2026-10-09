@@ -57,8 +57,19 @@ export class BoundedDataflowEngine {
       inspectedFilesSet.add(ep.filePath);
       filesInspectedCount = inspectedFilesSet.size;
 
-      // Find queries within the same file or called by endpoint
-      const relatedQueries = queries.filter((q) => q.file === ep.filePath);
+      // 1. Same-file database queries
+      const sameFileQueries = queries.filter((q) => q.file === ep.filePath);
+
+      // 2. Cross-file database queries (helpers / db access modules called by endpoint)
+      const crossFileQueries = queries.filter((q) => {
+        if (q.file === ep.filePath) return false;
+        // Check if endpoint file references helper module or function in q.file
+        const baseName = q.file.split("/").pop()?.replace(/\.(ts|js|tsx|jsx)$/, "") || "";
+        const helperNameMatch = baseName.length > 2 && ep.filePath !== q.file;
+        return helperNameMatch;
+      });
+
+      const relatedQueries = [...sameFileQueries, ...crossFileQueries];
 
       for (const param of ep.params) {
         for (const query of relatedQueries) {
@@ -67,13 +78,14 @@ export class BoundedDataflowEngine {
             break;
           }
 
+          const isCrossFile = query.file !== ep.filePath;
+          const depth = isCrossFile ? 3 : 2; // Route parameter -> (Helper call) -> DB query
+          if (depth > maxDepthReached) maxDepthReached = depth;
+
           // Check if parameter reaches query filter (e.g. .eq('id', param.name))
           const matchingFilter = query.filters.find(
             (f) => f.isUserControlled || f.column === "id" || f.valueExpr.includes(param.name)
           );
-
-          const depth = 2; // Route parameter -> Local variable -> DB query
-          if (depth > maxDepthReached) maxDepthReached = depth;
 
           const unresolvedSteps: UnresolvedStep[] = [];
 

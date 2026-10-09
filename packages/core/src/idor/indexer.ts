@@ -182,8 +182,6 @@ export function indexRepository(filesMap: Map<string, string>): IndexedRepositor
     const isRouteHandler = /(?:^|\/)app\/.*\/route\.(?:ts|js|tsx|jsx)$/i.test(normPath) || normPath.includes("pages/api/");
     const isServerAction = /^\s*['"]use server['"]/m.test(text);
 
-    if (!isRouteHandler && !isServerAction && !normPath.includes("api/")) continue;
-
     // Detect parameters
     const params: IndexedParam[] = [];
 
@@ -323,9 +321,9 @@ export function indexRepository(filesMap: Map<string, string>): IndexedRepositor
       ? "Dynamic property lookup in database query filter detected on path"
       : undefined;
 
-    if (isRouteHandler || isServerAction) {
+    if (isRouteHandler || isServerAction || params.length > 0) {
       endpoints.push({
-        id: `${normPath}:${isRouteHandler ? "route" : "action"}`,
+        id: `${normPath}:${isRouteHandler ? "route" : isServerAction ? "action" : "helper"}`,
         filePath: normPath,
         name: normPath.split("/").pop() || "endpoint",
         kind: isRouteHandler ? "route-handler" : "server-action",
