@@ -35,6 +35,9 @@ export function validateCsrfToken(req: RequestContext, userId: string): boolean 
   let tokenFromReq = "";
   if (typeof req.body === "object" && req.body !== null && "_csrf" in req.body) {
     tokenFromReq = String((req.body as Record<string, unknown>)._csrf);
+  } else if (typeof req.body === "string" && req.body.length > 0) {
+    const params = new URLSearchParams(req.body);
+    tokenFromReq = params.get("_csrf") || "";
   } else if (req.headers && req.headers["x-csrf-token"]) {
     tokenFromReq = req.headers["x-csrf-token"];
   }

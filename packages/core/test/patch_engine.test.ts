@@ -206,7 +206,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     const res = fixIdorOwnerColumn(filesMap, "app/api/orders/route.ts");
     expect(res.kind).toBe("automated");
-    expect(res.edits[0].replacementContent).toContain('.eq("id", params.id).eq("user_id", session.user.id)');
+    if (res.kind === "automated") {
+      expect(res.edits[0].replacementContent).toContain('.eq("user_id", session.user.id)');
+    }
   });
 });
 

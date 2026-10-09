@@ -236,10 +236,13 @@ export async function handlePublicRepoScan(
   userLastScanTime.set(userId, now);
 
   // 3. Extract and Validate GitHub URL
-  const repoUrl =
-    typeof req.body === "object" && req.body !== null && "repoUrl" in req.body
-      ? String((req.body as Record<string, unknown>).repoUrl)
-      : "";
+  let repoUrl = "";
+  if (typeof req.body === "object" && req.body !== null && "repoUrl" in req.body) {
+    repoUrl = String((req.body as Record<string, unknown>).repoUrl);
+  } else if (typeof req.body === "string" && req.body.length > 0) {
+    const params = new URLSearchParams(req.body);
+    repoUrl = params.get("repoUrl") || "";
+  }
 
   const validated = parseAndValidateGitHubUrl(repoUrl);
   if (!validated.valid) {

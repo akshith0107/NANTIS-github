@@ -102,9 +102,39 @@ export const server = http.createServer(async (req, res) => {
     await new Promise((resolve) => req.on("end", resolve));
   }
 
+  let parsedBody: Record<string, unknown> | string = bodyText;
+  const contentType = (req.headers["content-type"] || "").toLowerCase();
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    const params = new URLSearchParams(bodyText);
+    const obj: Record<string, string> = {};
+    for (const [k, v] of params.entries()) {
+      obj[k] = v;
+    }
+    parsedBody = obj;
+  } else if (contentType.includes("application/json")) {
+    try {
+      parsedBody = JSON.parse(bodyText);
+    } catch {
+      parsedBody = bodyText;
+    }
+  } else if (bodyText.length > 0) {
+    try {
+      parsedBody = JSON.parse(bodyText);
+    } catch {
+      if (bodyText.includes("=")) {
+        const params = new URLSearchParams(bodyText);
+        const obj: Record<string, string> = {};
+        for (const [k, v] of params.entries()) {
+          obj[k] = v;
+        }
+        parsedBody = obj;
+      }
+    }
+  }
+
   const reqContext: RequestContext = {
     cookies,
-    body: bodyText,
+    body: parsedBody,
     ip: req.socket.remoteAddress || "127.0.0.1",
     userAgent: req.headers["user-agent"] || "Unknown",
     method: req.method,
